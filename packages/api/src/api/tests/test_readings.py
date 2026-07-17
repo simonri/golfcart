@@ -1,4 +1,6 @@
 import json
+import tempfile
+from collections.abc import AsyncIterator
 from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
@@ -6,11 +8,16 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from api.readings import bms
+import pytest_asyncio
+from api.common.db.engine import AsyncSessionMaker, create_async_engine, create_async_sessionmaker
+from api.models.base import Model
 from api.readings.bms import BmsUnreachableError, CaptureResult
+from api.readings.connection import BmsConnection
 from api.readings.decode import decode_blocks
+from api.readings.repository import ReadingRepository
 from api.tests.fixtures.database import SaveFixture
 from api.tests.fixtures.random_objects import create_reading
+from bleak.exc import BleakError
 from httpx import AsyncClient
 from pytest_mock import MockerFixture
 
@@ -30,6 +37,29 @@ def sample_capture(sample_blocks: dict[str, Any]) -> CaptureResult:
     blocks=sample_blocks,
     decoded=decode_blocks(sample_blocks),
   )
+
+
+@pytest.fixture
+def connection() -> BmsConnection:
+  """A fresh, unconnected BmsConnection — isolated from the app's singleton."""
+  return BmsConnection()
+
+
+@pytest_asyncio.fixture
+async def isolated_sessionmaker() -> AsyncIterator[AsyncSessionMaker]:
+  """A standalone sqlite-backed sessionmaker, isolated from the shared test
+  DB/transaction, for exercising code paths that commit their own session
+  (background poll persistence) without disturbing other tests' rollback-based
+  isolation."""
+  db_path = Path(tempfile.gettempdir()) / f"bessel_test_poll_{uuid4().hex}.db"
+  engine = create_async_engine(dsn=f"sqlite+aiosqlite:///{db_path}")
+  async with engine.begin() as conn:
+    await conn.run_sync(Model.metadata.create_all)
+  try:
+    yield create_async_sessionmaker(engine)
+  finally:
+    await engine.dispose()
+    db_path.unlink(missing_ok=True)
 
 
 class TestDecodeBlocks:
@@ -138,38 +168,130 @@ class TestDecodeBlocks:
     assert decoded.rated_capacity_ah is None
 
 
-class TestCaptureFromRetry:
+def _mock_bleak_client(mocker: MockerFixture, connect_side_effect: Any = None) -> Any:
+  """A fake BleakClient: tracks connected state, supports connect()/disconnect(),
+  and is_connected reflects it — enough for BmsConnection's own logic, without
+  simulating the real modbus wire protocol (that's covered by TestDecodeBlocks)."""
+  fake = mocker.MagicMock()
+  fake.is_connected = False
+
+  async def connect() -> None:
+    if connect_side_effect is not None:
+      raise connect_side_effect
+    fake.is_connected = True
+
+  async def disconnect() -> None:
+    fake.is_connected = False
+
+  fake.connect = mocker.AsyncMock(side_effect=connect)
+  fake.disconnect = mocker.AsyncMock(side_effect=disconnect)
+  return fake
+
+
+def _mock_daly(mocker: MockerFixture, blocks: dict[str, Any], read_side_effect: Any = None) -> Any:
+  fake = mocker.MagicMock()
+  fake.start = mocker.AsyncMock()
+  fake.read_all = mocker.AsyncMock(side_effect=read_side_effect or (lambda: blocks))
+  return fake
+
+
+class TestBmsConnection:
   @pytest.mark.asyncio
-  async def test_succeeds_after_one_transient_timeout(self, mocker: MockerFixture, sample_blocks: dict[str, Any]) -> None:
-    connect = mocker.patch("api.readings.bms._connect_and_read", side_effect=[TimeoutError(), sample_blocks])
+  async def test_read_now_connects_once_and_reuses(self, mocker: MockerFixture, connection: BmsConnection, sample_blocks: dict[str, Any]) -> None:
+    mocker.patch("api.readings.connection.bms.scan", return_value=("AA:BB:CC:DD:EE:FF", "DL-TEST"))
+    fake_client = _mock_bleak_client(mocker)
+    mocker.patch("api.readings.connection.BleakClient", return_value=fake_client)
+    fake_daly = _mock_daly(mocker, sample_blocks)
+    mocker.patch("api.readings.connection.DalyModbusBLE", return_value=fake_daly)
 
-    result = await bms._capture_from("AA:BB:CC:DD:EE:FF", "DL-TEST")
+    result1 = await connection.read_now()
+    result2 = await connection.read_now()
 
-    assert connect.call_count == 2
-    assert result.device_address == "AA:BB:CC:DD:EE:FF"
+    assert fake_client.connect.await_count == 1
+    assert fake_daly.read_all.await_count == 2
+    assert result1.blocks == sample_blocks
+    assert result2.device_address == "AA:BB:CC:DD:EE:FF"
+
+  @pytest.mark.asyncio
+  async def test_connect_retries_then_succeeds(self, mocker: MockerFixture, connection: BmsConnection, sample_blocks: dict[str, Any]) -> None:
+    mocker.patch("api.readings.connection.bms.scan", return_value=("AA:BB:CC:DD:EE:FF", "DL-TEST"))
+    failing_client = _mock_bleak_client(mocker, connect_side_effect=TimeoutError())
+    ok_client = _mock_bleak_client(mocker)
+    mocker.patch("api.readings.connection.BleakClient", side_effect=[failing_client, ok_client])
+    fake_daly = _mock_daly(mocker, sample_blocks)
+    mocker.patch("api.readings.connection.DalyModbusBLE", return_value=fake_daly)
+
+    result = await connection.read_now()
+
+    assert failing_client.connect.await_count == 1
+    assert ok_client.connect.await_count == 1
     assert result.blocks == sample_blocks
 
   @pytest.mark.asyncio
-  async def test_raises_clear_message_after_exhausting_attempts(self, mocker: MockerFixture) -> None:
-    connect = mocker.patch("api.readings.bms._connect_and_read", side_effect=TimeoutError())
+  async def test_connect_exhausts_attempts_raises_clear_message(self, mocker: MockerFixture, connection: BmsConnection) -> None:
+    mocker.patch("api.readings.connection.bms.scan", return_value=("AA:BB:CC:DD:EE:FF", "DL-TEST"))
+    mocker.patch(
+      "api.readings.connection.BleakClient",
+      side_effect=lambda *a, **k: _mock_bleak_client(mocker, connect_side_effect=TimeoutError()),
+    )
 
     with pytest.raises(BmsUnreachableError, match="BLE connect timed out after 2 attempt"):
-      await bms._capture_from("AA:BB:CC:DD:EE:FF", "DL-TEST")
-
-    assert connect.call_count == 2
+      await connection.read_now()
 
   @pytest.mark.asyncio
-  async def test_non_timeout_error_message_is_preserved(self, mocker: MockerFixture) -> None:
-    mocker.patch("api.readings.bms._connect_and_read", side_effect=OSError("bluetooth adapter not found"))
+  async def test_read_failure_marks_disconnected_then_reconnects(self, mocker: MockerFixture, connection: BmsConnection, sample_blocks: dict[str, Any]) -> None:
+    mocker.patch("api.readings.connection.bms.scan", return_value=("AA:BB:CC:DD:EE:FF", "DL-TEST"))
+    client1 = _mock_bleak_client(mocker)
+    client2 = _mock_bleak_client(mocker)
+    mocker.patch("api.readings.connection.BleakClient", side_effect=[client1, client2])
+    daly1 = _mock_daly(mocker, sample_blocks, read_side_effect=BleakError("link lost"))
+    daly2 = _mock_daly(mocker, sample_blocks)
+    mocker.patch("api.readings.connection.DalyModbusBLE", side_effect=[daly1, daly2])
 
-    with pytest.raises(BmsUnreachableError, match="bluetooth adapter not found"):
-      await bms._capture_from("AA:BB:CC:DD:EE:FF", "DL-TEST")
+    with pytest.raises(BmsUnreachableError):
+      await connection.read_now()
+    assert connection.is_connected is False
+
+    result = await connection.read_now()
+    assert result.blocks == sample_blocks
+    assert client2.connect.await_count == 1
+
+  @pytest.mark.asyncio
+  async def test_poll_once_persists_a_reading(
+    self,
+    mocker: MockerFixture,
+    connection: BmsConnection,
+    sample_blocks: dict[str, Any],
+    isolated_sessionmaker: AsyncSessionMaker,
+  ) -> None:
+    mocker.patch("api.readings.connection.bms.scan", return_value=("AA:BB:CC:DD:EE:FF", "DL-TEST"))
+    mocker.patch("api.readings.connection.BleakClient", return_value=_mock_bleak_client(mocker))
+    mocker.patch("api.readings.connection.DalyModbusBLE", return_value=_mock_daly(mocker, sample_blocks))
+    connection._sessionmaker = isolated_sessionmaker
+    await connection._connect()  # _poll_once only reads if already connected, by design
+
+    await connection._poll_once()
+
+    async with isolated_sessionmaker() as session:
+      latest = await ReadingRepository.from_session(session).get_latest()
+    assert latest is not None
+    assert latest.voltage_v == 56.6
+
+  @pytest.mark.asyncio
+  async def test_poll_once_skips_when_not_connected(self, connection: BmsConnection, isolated_sessionmaker: AsyncSessionMaker) -> None:
+    connection._sessionmaker = isolated_sessionmaker
+
+    await connection._poll_once()  # no BleakClient/DalyModbusBLE mocked — must not attempt to connect
+
+    async with isolated_sessionmaker() as session:
+      latest = await ReadingRepository.from_session(session).get_latest()
+    assert latest is None
 
 
 class TestCaptureReading:
   @pytest.mark.asyncio
   async def test_capture_persists_and_returns_reading(self, client: AsyncClient, mocker: MockerFixture, sample_capture: CaptureResult) -> None:
-    mocker.patch("api.readings.bms.capture_reading", return_value=sample_capture)
+    mocker.patch("api.readings.endpoints.connection.read_now", return_value=sample_capture)
 
     resp = await client.post("/v1/readings")
     assert resp.status_code == 201
@@ -194,7 +316,7 @@ class TestCaptureReading:
 class TestCaptureErrors:
   @pytest.mark.asyncio
   async def test_unreachable_bms_returns_503(self, client: AsyncClient, mocker: MockerFixture) -> None:
-    mocker.patch("api.readings.bms.capture_reading", side_effect=BmsUnreachableError("no Daly BMS found during Bluetooth scan"))
+    mocker.patch("api.readings.endpoints.connection.read_now", side_effect=BmsUnreachableError("no Daly BMS found during Bluetooth scan"))
 
     resp = await client.post("/v1/readings")
     assert resp.status_code == 503
@@ -204,20 +326,6 @@ class TestCaptureErrors:
 
     listed = (await client.get("/v1/readings")).json()
     assert listed["pagination"]["total_count"] == 0
-
-  @pytest.mark.asyncio
-  async def test_capture_in_progress_returns_409(self, client: AsyncClient, mocker: MockerFixture) -> None:
-    capture = mocker.patch("api.readings.bms.capture_reading")
-
-    await bms.capture_lock.acquire()
-    try:
-      resp = await client.post("/v1/readings")
-    finally:
-      bms.capture_lock.release()
-
-    assert resp.status_code == 409
-    assert resp.json()["error"] == "ConflictError"
-    capture.assert_not_called()
 
 
 class TestListReadings:

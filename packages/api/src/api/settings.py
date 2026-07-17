@@ -47,6 +47,8 @@ class Settings(BaseSettings):
   BMS_CONNECT_TIMEOUT: float = 20.0
   BMS_RESPONSE_TIMEOUT: float = 5.0
   BMS_CONNECT_ATTEMPTS: int = 2
+  BMS_POLL_INTERVAL_S: float = 60.0
+  BMS_RECONNECT_BACKOFF_S: float = 20.0
 
   # Sentry
   SENTRY_DSN: str | None = None

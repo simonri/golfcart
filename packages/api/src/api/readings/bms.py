@@ -1,8 +1,9 @@
-"""Bluetooth LE client for Daly BMS boards speaking the Modbus-style protocol
-on the fff0 UART service.
+"""Bluetooth LE protocol/transport for Daly BMS boards speaking the Modbus-style
+protocol on the fff0 UART service.
 
-All bleak I/O is confined to this module; `capture_reading` is the single entry
-point the endpoints call (and tests mock).
+All bleak I/O is confined to this module. Connection lifecycle (persistent
+connect, reconnect, polling) lives in `api.readings.connection` — this module
+only knows how to scan, frame requests, and parse responses.
 """
 
 import asyncio
@@ -12,10 +13,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import structlog
-from bleak import BleakClient, BleakScanner
-from bleak.exc import BleakError
+from bleak import BleakScanner
+from bleak.backends.device import BLEDevice
 
-from api.readings.decode import MAIN_BLOCK, DecodedReading, decode_blocks
+from api.readings.decode import MAIN_BLOCK, DecodedReading
 from api.settings import settings
 
 # NOTE: plain `logging.getLogger(__name__)` is silently dropped in production —
@@ -34,13 +35,6 @@ PROTOCOL = "daly-modbus-ble"
 BLOCK_MAIN = (MAIN_BLOCK, 0x0000, 0x50, 0x3E)
 BLOCK_INFO = ("info_0x0050", 0x0050, 0x20, None)
 BLOCK_SETTINGS = ("settings_0x0080", 0x0080, 0x10, None)
-
-# Only one BLE connection to the BMS can be open at a time.
-capture_lock = asyncio.Lock()
-
-# Discovered device, cached in-process so only the first capture pays for a
-# scan. Not used when settings.BMS_ADDRESS is set.
-_discovered: tuple[str, str | None] | None = None
 
 
 class BmsUnreachableError(Exception):
@@ -77,7 +71,10 @@ def looks_like_daly(name: str | None) -> bool:
 
 
 class DalyModbusBLE:
-  def __init__(self, client: BleakClient):
+  """Wraps a connected BleakClient to speak the modbus-over-notify protocol.
+  Does not own the connection's lifecycle — caller connects/disconnects."""
+
+  def __init__(self, client: Any):
     self.client = client
     self._buffer = bytearray()
     self._future: asyncio.Future[bytes] | None = None
@@ -137,9 +134,10 @@ class DalyModbusBLE:
     return blocks
 
 
-async def _scan() -> tuple[str, str | None]:
+async def scan() -> tuple[str, str | None]:
+  """Scan for a Daly-looking BLE device. Raises BmsUnreachableError if none found."""
   started = time.monotonic()
-  devices = await BleakScanner.discover(timeout=settings.BMS_SCAN_TIMEOUT)
+  devices: list[BLEDevice] = await BleakScanner.discover(timeout=settings.BMS_SCAN_TIMEOUT)
   duration_s = round(time.monotonic() - started, 2)
   candidates = [d for d in devices if looks_like_daly(d.name)]
   if not candidates:
@@ -150,69 +148,3 @@ async def _scan() -> tuple[str, str | None]:
   device = candidates[0]
   log.info("bms.scan.found", device_name=device.name, device_address=device.address, duration_s=duration_s)
   return device.address, device.name
-
-
-async def _connect_and_read(address: str) -> dict[str, Any]:
-  async with BleakClient(address, services=[SERVICE_UUID], timeout=settings.BMS_CONNECT_TIMEOUT) as client:
-    bms = DalyModbusBLE(client)
-    await bms.start()
-    return await bms.read_all()
-
-
-async def _capture_from(address: str, name: str | None) -> CaptureResult:
-  """Connect and read, retrying transient BLE connect failures — connection
-  establishment time to this hardware is highly variable, and a fresh attempt
-  often succeeds well within BMS_CONNECT_TIMEOUT even after one attempt times out."""
-  started = time.monotonic()
-  last_error: Exception | None = None
-
-  for attempt in range(1, settings.BMS_CONNECT_ATTEMPTS + 1):
-    attempt_started = time.monotonic()
-    try:
-      blocks = await _connect_and_read(address)
-    except (BleakError, TimeoutError, OSError, ValueError) as e:
-      last_error = e
-      log.warning(
-        "bms.connect.attempt_failed",
-        address=address,
-        attempt=attempt,
-        of=settings.BMS_CONNECT_ATTEMPTS,
-        duration_s=round(time.monotonic() - attempt_started, 2),
-        error=str(e) or type(e).__name__,
-      )
-      continue
-    log.info("bms.capture.done", address=address, attempt=attempt, total_s=round(time.monotonic() - started, 2))
-    return CaptureResult(device_name=name, device_address=address, blocks=blocks, decoded=decode_blocks(blocks))
-
-  total_s = round(time.monotonic() - started, 2)
-  if isinstance(last_error, TimeoutError):
-    message = f"BLE connect timed out after {settings.BMS_CONNECT_ATTEMPTS} attempt(s) ({total_s}s total)"
-  else:
-    message = str(last_error) or type(last_error).__name__
-  log.warning("bms.connect.failed", address=address, attempts=settings.BMS_CONNECT_ATTEMPTS, total_s=total_s, error=message)
-  raise BmsUnreachableError(message)
-
-
-async def capture_reading() -> CaptureResult:
-  """Resolve the BMS address (settings > cached discovery > scan), connect, and
-  read all register blocks. Raises BmsUnreachableError on any failure."""
-  global _discovered
-
-  started = time.monotonic()
-  try:
-    if settings.BMS_ADDRESS:
-      return await _capture_from(settings.BMS_ADDRESS, None)
-
-    if _discovered is not None:
-      address, name = _discovered
-      try:
-        return await _capture_from(address, name)
-      except BmsUnreachableError as e:
-        log.info("bms.cache.stale_rescanning", address=address, error=str(e))
-        _discovered = None
-
-    address, name = await _scan()
-    _discovered = (address, name)
-    return await _capture_from(address, name)
-  finally:
-    log.info("bms.capture_reading.total", duration_s=round(time.monotonic() - started, 2))

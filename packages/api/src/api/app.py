@@ -15,6 +15,7 @@ from api.health import router as health_router
 from api.logging import Logger
 from api.logging import configure as configure_logging
 from api.openapi import OPENAPI_PARAMETERS, set_openapi_generator
+from api.readings.connection import connection
 from api.sentry import configure_sentry
 from api.settings import settings
 
@@ -68,6 +69,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[State]:
 
   sync_engine = create_sync_engine()
 
+  if not settings.is_testing():
+    await connection.start(async_sessionmaker)
+
   log.info("Bessel API started")
 
   yield {
@@ -75,6 +79,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[State]:
     "async_sessionmaker": async_sessionmaker,
     "sync_engine": sync_engine,
   }
+
+  if not settings.is_testing():
+    await connection.stop()
 
   await async_engine.dispose()
   sync_engine.dispose()
