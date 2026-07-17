@@ -1,0 +1,60 @@
+[project]
+name = "api"
+version = "1.0.0"
+requires-python = "==3.12.*"
+
+dependencies = [
+  "fastapi>=0.122.0",
+  "pydantic>=2.10.1",
+  "taskipy>=1.14.1",
+  "uvicorn>=0.38.0",
+  "starlette>=0.50.0",
+  "alembic>=1.17.2",
+  "typer>=0.20.0",
+  "httpx>=0.28.1",
+  "aiosqlite>=0.21.0",
+  "makefun>=1.16.0",
+  "sentry-sdk>=2.47.0",
+  "structlog>=25.5.0",
+  "pytest-xdist[psutil]>=3.8.0",
+  "pydantic-settings>=2.12.0",
+  "bleak>=0.22",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.4.2",
+  "pytest-cov",
+  "pytest-mock>=3.15.1",
+  "pytest-asyncio>=1.2.0",
+  "ruff>=0.13.0",
+  "mypy>=1.18.1",
+]
+
+[tool.taskipy.tasks]
+api = { cmd = "uvicorn src.api.app:app --reload --port 8100 --host 0.0.0.0" }
+db_migrate = { cmd = "python db.py upgrade" }
+db_new_migration = { cmd = "alembic revision --autogenerate -m 'migrate'" }
+test = { cmd = "BESSEL_ENV=testing python -m pytest . --cov=src --cov-report=term-missing --cov-report=html" }
+lint = { cmd = "ruff format . && ruff check --fix .", help = "run linters with autofix" }
+
+[build-system]
+requires = ["uv_build>=0.9.16,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+common = { workspace = true }
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/tests/*", "*/migrations/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]

@@ -1,0 +1,1759 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bessel API",
+    "summary": "Bessel HTTP and Webhooks API",
+    "description": "Hello! This is the Bessel API.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.getbessel.com",
+      "description": "Production environment",
+      "x-speakeasy-server-id": "production"
+    }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Healthz",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "List Tasks",
+        "operationId": "list_tasks_v1_tasks_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskStatus"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by status. Repeat to filter by multiple.",
+              "title": "Status"
+            },
+            "description": "Filter by status. Repeat to filter by multiple."
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 4,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by priority.",
+              "title": "Priority"
+            },
+            "description": "Filter by priority."
+          },
+          {
+            "name": "area",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by area.",
+              "title": "Area"
+            },
+            "description": "Filter by area."
+          },
+          {
+            "name": "is_recurring",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by recurring.",
+              "title": "Is Recurring"
+            },
+            "description": "Filter by recurring."
+          },
+          {
+            "name": "completed_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter tasks completed after this Unix timestamp (inclusive).",
+              "title": "Completed After"
+            },
+            "description": "Filter tasks completed after this Unix timestamp (inclusive)."
+          },
+          {
+            "name": "completed_before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter tasks completed before this Unix timestamp (exclusive).",
+              "title": "Completed Before"
+            },
+            "description": "Filter tasks completed before this Unix timestamp (exclusive)."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "description": "Page number, defaults to 1.",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number, defaults to 1."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "description": "Size of a page, defaults to 10. Maximum is 100.",
+              "default": 10,
+              "title": "Limit"
+            },
+            "description": "Size of a page, defaults to 10. Maximum is 100."
+          },
+          {
+            "name": "sorting",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskSortProperty"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order.",
+              "default": [
+                "-created_at"
+              ],
+              "title": "Sorting"
+            },
+            "description": "Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Create Task",
+        "operationId": "create_task_v1_tasks_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/reorder": {
+      "patch": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Reorder Tasks",
+        "operationId": "reorder_tasks_v1_tasks_reorder_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/TaskReorderItem"
+                },
+                "type": "array",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/{task_id}": {
+      "patch": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Update Task",
+        "operationId": "update_task_v1_tasks__task_id__patch",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Delete Task",
+        "operationId": "delete_task_v1_tasks__task_id__delete",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Get Task",
+        "operationId": "get_task_v1_tasks__task_id__get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/{task_id}/complete": {
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Complete Task",
+        "operationId": "complete_task_v1_tasks__task_id__complete_post",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCompleteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/{task_id}/reopen": {
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Reopen Task",
+        "operationId": "reopen_task_v1_tasks__task_id__reopen_post",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/areas": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "List Areas",
+        "operationId": "list_areas_v1_tasks_areas_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response List Areas V1 Tasks Areas Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/readings": {
+      "post": {
+        "tags": [
+          "readings"
+        ],
+        "summary": "Capture Reading",
+        "operationId": "create_reading_v1_readings_post",
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingSchema"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "readings"
+        ],
+        "summary": "List Readings",
+        "operationId": "list_readings_v1_readings_get",
+        "parameters": [
+          {
+            "name": "created_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter readings created after this Unix timestamp (inclusive).",
+              "title": "Created After"
+            },
+            "description": "Filter readings created after this Unix timestamp (inclusive)."
+          },
+          {
+            "name": "created_before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter readings created before this Unix timestamp (exclusive).",
+              "title": "Created Before"
+            },
+            "description": "Filter readings created before this Unix timestamp (exclusive)."
+          },
+          {
+            "name": "has_alarms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by alarm presence.",
+              "title": "Has Alarms"
+            },
+            "description": "Filter by alarm presence."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "description": "Page number, defaults to 1.",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number, defaults to 1."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "description": "Size of a page, defaults to 10. Maximum is 100.",
+              "default": 10,
+              "title": "Limit"
+            },
+            "description": "Size of a page, defaults to 10. Maximum is 100."
+          },
+          {
+            "name": "sorting",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReadingSortProperty"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order.",
+              "default": [
+                "-created_at"
+              ],
+              "title": "Sorting"
+            },
+            "description": "Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/readings/latest": {
+      "get": {
+        "tags": [
+          "readings"
+        ],
+        "summary": "Get Latest Reading",
+        "operationId": "get_latest_reading_v1_readings_latest_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/readings/{reading_id}": {
+      "get": {
+        "tags": [
+          "readings"
+        ],
+        "summary": "Get Reading",
+        "operationId": "get_reading_v1_readings__reading_id__get",
+        "parameters": [
+          {
+            "name": "reading_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Reading Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BalancingSchema": {
+        "properties": {
+          "balance_current_a": {
+            "type": "number",
+            "title": "Balance Current A",
+            "description": "Balancer current in amperes."
+          },
+          "balancing_cells": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Balancing Cells",
+            "description": "1-based numbers of the cells currently being balanced."
+          },
+          "mosfet_temperature_c": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mosfet Temperature C",
+            "description": "Balancer MOSFET temperature in \u00b0C."
+          },
+          "board_temperature_c": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Board Temperature C",
+            "description": "Balancer board temperature in \u00b0C."
+          }
+        },
+        "type": "object",
+        "required": [
+          "balance_current_a",
+          "balancing_cells"
+        ],
+        "title": "BalancingSchema"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Pagination": {
+        "properties": {
+          "total_count": {
+            "type": "integer",
+            "title": "Total Count"
+          },
+          "max_page": {
+            "type": "integer",
+            "title": "Max Page"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_count",
+          "max_page"
+        ],
+        "title": "Pagination"
+      },
+      "ReadingListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReadingSchema"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "title": "ReadingListResponse"
+      },
+      "ReadingSchema": {
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "Creation timestamp of the object."
+          },
+          "modified_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modified At",
+            "description": "Last modification timestamp of the object."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid4",
+            "title": "Id",
+            "description": "The ID of the object."
+          },
+          "device_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Name",
+            "description": "Bluetooth name of the BMS device."
+          },
+          "device_address": {
+            "type": "string",
+            "title": "Device Address",
+            "description": "Bluetooth address of the BMS device."
+          },
+          "device_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Model",
+            "description": "BMS model string reported by the device."
+          },
+          "protocol": {
+            "type": "string",
+            "title": "Protocol",
+            "description": "Protocol used to read the BMS."
+          },
+          "voltage_v": {
+            "type": "number",
+            "title": "Voltage V",
+            "description": "Total pack voltage in volts."
+          },
+          "current_a": {
+            "type": "number",
+            "title": "Current A",
+            "description": "Pack current in amperes; positive when charging, negative when discharging."
+          },
+          "power_w": {
+            "type": "number",
+            "title": "Power W",
+            "description": "Pack power in watts."
+          },
+          "soc_percent": {
+            "type": "number",
+            "title": "Soc Percent",
+            "description": "State of charge in percent."
+          },
+          "remaining_capacity_ah": {
+            "type": "number",
+            "title": "Remaining Capacity Ah",
+            "description": "Remaining capacity in ampere-hours."
+          },
+          "rated_capacity_ah": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rated Capacity Ah",
+            "description": "Rated capacity in ampere-hours, from the BMS settings."
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode",
+            "description": "Pack mode: idle, charging or discharging."
+          },
+          "cycles": {
+            "type": "integer",
+            "title": "Cycles",
+            "description": "Charge cycle count."
+          },
+          "cell_count": {
+            "type": "integer",
+            "title": "Cell Count",
+            "description": "Number of cells in the pack."
+          },
+          "cell_voltage_max_v": {
+            "type": "number",
+            "title": "Cell Voltage Max V",
+            "description": "Highest cell voltage in volts."
+          },
+          "cell_voltage_min_v": {
+            "type": "number",
+            "title": "Cell Voltage Min V",
+            "description": "Lowest cell voltage in volts."
+          },
+          "cell_voltage_avg_v": {
+            "type": "number",
+            "title": "Cell Voltage Avg V",
+            "description": "Average cell voltage in volts."
+          },
+          "cell_voltage_delta_v": {
+            "type": "number",
+            "title": "Cell Voltage Delta V",
+            "description": "Difference between highest and lowest cell voltage in volts."
+          },
+          "temperature_sensor_count": {
+            "type": "integer",
+            "title": "Temperature Sensor Count",
+            "description": "Number of temperature sensors."
+          },
+          "temperature_max_c": {
+            "type": "number",
+            "title": "Temperature Max C",
+            "description": "Highest sensor temperature in \u00b0C."
+          },
+          "temperature_min_c": {
+            "type": "number",
+            "title": "Temperature Min C",
+            "description": "Lowest sensor temperature in \u00b0C."
+          },
+          "balancer_active": {
+            "type": "boolean",
+            "title": "Balancer Active",
+            "description": "Whether the balancer is active."
+          },
+          "charging_mosfet": {
+            "type": "boolean",
+            "title": "Charging Mosfet",
+            "description": "Whether the charging MOSFET is enabled."
+          },
+          "discharging_mosfet": {
+            "type": "boolean",
+            "title": "Discharging Mosfet",
+            "description": "Whether the discharging MOSFET is enabled."
+          },
+          "has_alarms": {
+            "type": "boolean",
+            "title": "Has Alarms",
+            "description": "Whether any alarm register is set."
+          },
+          "cell_voltages": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Cell Voltages",
+            "description": "Per-cell voltages in volts, ordered by cell number."
+          },
+          "temperatures": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Temperatures",
+            "description": "Per-sensor temperatures in \u00b0C, ordered by sensor number."
+          },
+          "balancing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BalancingSchema"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Balancing details, if reported by the BMS."
+          },
+          "alarms": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alarms",
+            "description": "Raw alarm registers as hex strings, or null when no alarms are set."
+          }
+        },
+        "type": "object",
+        "required": [
+          "created_at",
+          "modified_at",
+          "id",
+          "device_name",
+          "device_address",
+          "device_model",
+          "protocol",
+          "voltage_v",
+          "current_a",
+          "power_w",
+          "soc_percent",
+          "remaining_capacity_ah",
+          "rated_capacity_ah",
+          "mode",
+          "cycles",
+          "cell_count",
+          "cell_voltage_max_v",
+          "cell_voltage_min_v",
+          "cell_voltage_avg_v",
+          "cell_voltage_delta_v",
+          "temperature_sensor_count",
+          "temperature_max_c",
+          "temperature_min_c",
+          "balancer_active",
+          "charging_mosfet",
+          "discharging_mosfet",
+          "has_alarms",
+          "cell_voltages",
+          "temperatures",
+          "balancing",
+          "alarms"
+        ],
+        "title": "ReadingSchema"
+      },
+      "ReadingSortProperty": {
+        "type": "string",
+        "enum": [
+          "created_at",
+          "-created_at",
+          "voltage_v",
+          "-voltage_v",
+          "soc_percent",
+          "-soc_percent"
+        ],
+        "title": "ReadingSortProperty"
+      },
+      "RruleFrequency": {
+        "type": "string",
+        "enum": [
+          "daily",
+          "weekly",
+          "monthly",
+          "yearly"
+        ],
+        "title": "RruleFrequency"
+      },
+      "TaskCompleteResponse": {
+        "properties": {
+          "completed_task": {
+            "$ref": "#/components/schemas/TaskSchema"
+          },
+          "next_task": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskSchema"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Next recurring instance, if applicable."
+          }
+        },
+        "type": "object",
+        "required": [
+          "completed_task"
+        ],
+        "title": "TaskCompleteResponse"
+      },
+      "TaskCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Title",
+            "description": "Task title."
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TaskStatus",
+            "default": "todo"
+          },
+          "priority": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 0.0,
+            "title": "Priority",
+            "default": 0
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "area": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "is_recurring": {
+            "type": "boolean",
+            "title": "Is Recurring",
+            "default": false
+          },
+          "rrule_frequency": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RruleFrequency"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rrule_interval": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rrule Interval"
+          },
+          "rrule_day_of_week": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 6.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rrule Day Of Week"
+          },
+          "rrule_day_of_month": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 31.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rrule Day Of Month"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "TaskCreate"
+      },
+      "TaskListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TaskSchema"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "title": "TaskListResponse"
+      },
+      "TaskReorderItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "position": {
+            "type": "number",
+            "title": "Position"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "position"
+        ],
+        "title": "TaskReorderItem"
+      },
+      "TaskSchema": {
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "Creation timestamp of the object."
+          },
+          "modified_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modified At",
+            "description": "Last modification timestamp of the object."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid4",
+            "title": "Id",
+            "description": "The ID of the object."
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "Task title."
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Task description."
+          },
+          "status": {
+            "$ref": "#/components/schemas/TaskStatus",
+            "description": "Task status.",
+            "default": "todo"
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority",
+            "description": "Priority (0=none, 1=low, 2=medium, 3=high, 4=urgent).",
+            "default": 0
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date",
+            "description": "Due date."
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At",
+            "description": "Completion timestamp."
+          },
+          "area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area",
+            "description": "Area (e.g. Company, Personal, Travel)."
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags",
+            "description": "User-defined tags."
+          },
+          "position": {
+            "type": "number",
+            "title": "Position",
+            "description": "Position for ordering within a status column.",
+            "default": 0
+          },
+          "is_recurring": {
+            "type": "boolean",
+            "title": "Is Recurring",
+            "description": "Whether this task recurs.",
+            "default": false
+          },
+          "rrule_frequency": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RruleFrequency"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Recurrence frequency."
+          },
+          "rrule_interval": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rrule Interval",
+            "description": "Recurrence interval."
+          },
+          "rrule_day_of_week": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rrule Day Of Week",
+            "description": "Day of week for weekly recurrence (0=Mon, 6=Sun)."
+          },
+          "rrule_day_of_month": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rrule Day Of Month",
+            "description": "Day of month for monthly recurrence (1-31)."
+          },
+          "parent_task_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Task Id",
+            "description": "Parent task ID for recurring chain."
+          }
+        },
+        "type": "object",
+        "required": [
+          "created_at",
+          "modified_at",
+          "id",
+          "title"
+        ],
+        "title": "TaskSchema"
+      },
+      "TaskSortProperty": {
+        "type": "string",
+        "enum": [
+          "created_at",
+          "-created_at",
+          "due_date",
+          "-due_date",
+          "priority",
+          "-priority",
+          "title",
+          "-title",
+          "completed_at",
+          "-completed_at",
+          "position",
+          "-position"
+        ],
+        "title": "TaskSortProperty"
+      },
+      "TaskStatus": {
+        "type": "string",
+        "enum": [
+          "todo",
+          "in_progress",
+          "done",
+          "cancelled"
+        ],
+        "title": "TaskStatus"
+      },
+      "TaskUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 4.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "area": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "is_recurring": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Recurring"
+          },
+          "rrule_frequency": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RruleFrequency"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rrule_interval": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rrule Interval"
+          },
+          "rrule_day_of_week": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 6.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rrule Day Of Week"
+          },
+          "rrule_day_of_month": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 31.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rrule Day Of Month"
+          }
+        },
+        "type": "object",
+        "title": "TaskUpdate"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

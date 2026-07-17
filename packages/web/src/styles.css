@@ -1,0 +1,271 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+/* Gate hover-only feedback to devices that actually have a hovering pointer,
+   so a tap on touch/trackpad doesn't leave a hover state stuck until the
+   next tap elsewhere. Usage: `pointer-fine:hover:bg-...` */
+@custom-variant pointer-fine (@media (hover: hover) and (pointer: fine));
+
+/* Named font-size steps for the sub-xs/in-between sizes widgets need to fit
+   cramped grid tiles. Font-size only (no line-height coupling), matching the
+   arbitrary text-[Npx] values they replace 1:1 so this is a pure rename with
+   no rendered change. */
+@utility text-8 {
+  font-size: 8px;
+}
+@utility text-9 {
+  font-size: 9px;
+}
+@utility text-10 {
+  font-size: 10px;
+}
+@utility text-11 {
+  font-size: 11px;
+}
+@utility text-12 {
+  font-size: 12px;
+}
+@utility text-13 {
+  font-size: 13px;
+}
+@utility text-15 {
+  font-size: 15px;
+}
+
+@theme inline {
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-300: var(--primary-300);
+  --color-primary-400: var(--primary-400);
+  --color-primary-500: var(--primary-500);
+  --color-primary-900: var(--primary-900);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-income: var(--income);
+  --color-expense: var(--expense);
+}
+
+/* Motion tokens. Strong curves for deliberate UI motion; overriding the
+   Tailwind defaults means `ease-out` / `ease-in-out` utilities pick these up.
+   Duration convention (Tailwind numeric utilities are the scale):
+   100–150ms press/hover · 150–250ms dropdowns · 200–300ms modals/windows.
+   UI motion stays under 300ms. */
+@theme {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+:root {
+  --accent-hue: 40;
+  --terminal-cursor: #f97316;
+  --terminal-selection: #f9731644;
+  --radius: 0.4rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.62 0.17 var(--accent-hue));
+  --primary-foreground: oklch(0.985 0 0);
+  --primary-300: oklch(0.86 0.12 var(--accent-hue));
+  --primary-400: oklch(0.77 0.16 var(--accent-hue));
+  --primary-500: oklch(0.62 0.17 var(--accent-hue));
+  --primary-900: oklch(0.26 0.09 var(--accent-hue));
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  --income: oklch(0.52 0.18 145);
+  --expense: oklch(0.54 0.21 25);
+}
+
+.dark {
+  /* Surfaces — three clear levels, very subtle cool-black tint for character */
+  --background: oklch(0.125 0.004 250);
+  --foreground: oklch(0.96 0.002 250);
+  --card: oklch(0.18 0.004 250);
+  --card-foreground: oklch(0.96 0.002 250);
+  --popover: oklch(0.20 0.004 250);
+  --popover-foreground: oklch(0.96 0.002 250);
+  /* Interactive — hue-driven */
+  --primary: oklch(0.70 0.18 var(--accent-hue));
+  --primary-foreground: oklch(0.985 0 0);
+  --primary-300: oklch(0.84 0.13 var(--accent-hue));
+  --primary-400: oklch(0.78 0.17 var(--accent-hue));
+  --primary-500: oklch(0.70 0.18 var(--accent-hue));
+  --primary-900: oklch(0.28 0.09 var(--accent-hue));
+  /* Subtle backgrounds */
+  --secondary: oklch(0.235 0.004 250);
+  --secondary-foreground: oklch(0.96 0.002 250);
+  --muted: oklch(0.22 0.004 250);
+  --muted-foreground: oklch(0.645 0.006 250);
+  --accent: oklch(0.235 0.004 250);
+  --accent-foreground: oklch(0.96 0.002 250);
+  /* Feedback */
+  --destructive: oklch(0.65 0.22 22);
+  /* Borders — visible but not harsh */
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.62 0.12 var(--accent-hue));
+  /* Charts */
+  --chart-1: oklch(0.55 0.22 265);
+  --chart-2: oklch(0.70 0.17 162);
+  --chart-3: oklch(0.77 0.18 70);
+  --chart-4: oklch(0.65 0.24 304);
+  --chart-5: oklch(0.65 0.22 16);
+  /* Sidebar — distinct darker panel */
+  --sidebar: oklch(0.095 0.004 250);
+  --sidebar-foreground: oklch(0.96 0.002 250);
+  --sidebar-primary: oklch(0.70 0.18 var(--accent-hue));
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.22 0.004 250);
+  --sidebar-accent-foreground: oklch(0.96 0.002 250);
+  --sidebar-border: oklch(1 0 0 / 11%);
+  --sidebar-ring: oklch(0.50 0.005 250);
+  /* Semantic */
+  --income: oklch(0.75 0.22 145);
+  --expense: oklch(0.70 0.22 25);
+}
+
+/* ── Themes ─────────────────────────────────────────────────────────────────── */
+/* Place after .dark so [data-theme] wins the cascade for --accent-hue */
+
+[data-theme="orange"] {
+  --accent-hue: 40;
+  --terminal-cursor: #f97316;
+  --terminal-selection: #f9731644;
+}
+
+[data-theme="green"] {
+  --accent-hue: 145;
+  --terminal-cursor: #22c55e;
+  --terminal-selection: #22c55e44;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    outline: none;
+  }
+  html {
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Beats Tailwind preflight's `:-moz-focusring { outline: auto }`, which
+     otherwise restores Firefox's native tab focus ring despite the reset above. */
+  *:focus-visible {
+    outline: none;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Collapse all animation/transition durations to effectively zero rather than
+   removing them outright — this keeps enter/exit state changes and drag
+   settle instant (no slide/spring/parallax) without stripping the opacity
+   and color changes that still carry meaning. Applies globally so Radix's
+   animate-in/out classes, react-grid-layout's canvas transitions, and
+   dnd-kit's inline transition styles are all covered from one place. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* The canvas chrome (topbar, dock, windows, dropdowns) is built entirely from
+   bespoke bg-black/NN + backdrop-blur-* surfaces rather than a shared
+   translucent-panel component, so there's no single place to swap in a solid
+   background — target the utility classes directly by substring instead.
+   Overmatching within this closed set of known values is harmless: every
+   variant gets the same solid/high-contrast treatment either way. */
+@media (prefers-reduced-transparency: reduce) {
+  [class*="backdrop-blur-"] {
+    backdrop-filter: none !important;
+  }
+  [class*="bg-black/30"],
+  [class*="bg-black/40"],
+  [class*="bg-black/50"],
+  [class*="bg-black/60"],
+  [class*="bg-black/70"],
+  [class*="bg-black/80"],
+  [class*="bg-black/90"] {
+    background-color: oklch(0.09 0.004 250 / 97%) !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  [class*="border-white/5"],
+  [class*="border-white/10"],
+  [class*="border-white/15"],
+  [class*="border-white/20"],
+  [class*="border-white/25"] {
+    border-color: oklch(1 0 0 / 55%) !important;
+  }
+}

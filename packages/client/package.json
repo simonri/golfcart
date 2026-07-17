@@ -1,0 +1,23 @@
+{
+  "name": "@bessel/client",
+  "private": true,
+  "exports": {
+    "./client": "./src/client/index.ts",
+    "./instance": "./src/client.gen.ts",
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate-openapi": "openapi-ts"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.100.10",
+    "prettier": "^3.8.3"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "^0.97.1",
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

@@ -1,0 +1,32 @@
+packages:
+  - packages/*
+  - apps/*x
+
+allowBuilds:
+  browser-tabs-lock: true
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+  msw: true
+  node-pty: true
+  sharp: true
+  workerd: true
+
+catalog:
+  vite: npm:@voidzero-dev/vite-plus-core@0.1.13
+  vite-plus: 0.1.13
+  vitest: npm:@voidzero-dev/vite-plus-test@0.1.13
+
+overrides:
+  vite: 'catalog:'
+  vitest: 'catalog:'
+  react: '19.2.6'
+  react-dom: '19.2.6'
+
+peerDependencyRules:
+  allowAny:
+    - vite
+    - vitest
+  allowedVersions:
+    vite: '*'
+    vitest: '*'

@@ -1,11 +1,28 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
+__pycache__
+*.pyc
+*.pyo
+*.egg
 *.egg-info
-
-# Virtual environments
+dist
+build
+.pytest_cache
+.mypy_cache
+.ruff_cache
 .venv
-.daly_bms_cache.json
+venv
+*.db
+*.sqlite
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.idea
+.vscode
+*.swp
+.git
+.gitignore
+*.md
+node_modules
+.vite-hooks
+.turbo
