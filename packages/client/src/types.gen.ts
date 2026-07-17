@@ -259,6 +259,12 @@ export type ReadingSchema = {
   alarms: {
     [key: string]: string;
   } | null;
+  /**
+   * Alarm Messages
+   *
+   * Human-readable alarm/warning messages decoded from the alarm registers.
+   */
+  alarm_messages: Array<string> | null;
 };
 
 /**

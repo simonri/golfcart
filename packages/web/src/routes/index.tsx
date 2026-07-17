@@ -109,9 +109,7 @@ function HomePage() {
   const ModeIcon = mode.icon;
   const tone = socTone(reading.soc_percent);
   const hasAlarm = reading.has_alarms;
-  const alarmSummary = reading.alarms
-    ? Object.values(reading.alarms).join(", ")
-    : null;
+  const alarmMessages = reading.alarm_messages ?? [];
   const balancingCells = reading.balancing?.balancing_cells ?? [];
   const mosfetTemperatureC = reading.balancing?.mosfet_temperature_c;
 
@@ -137,13 +135,25 @@ function HomePage() {
         </header>
 
         {hasAlarm && (
-          <Card className="flex-row items-center gap-3 border-none bg-destructive/10 p-4">
-            <TriangleAlert className="size-5 shrink-0 text-destructive" />
+          <Card className="flex-row items-start gap-3 border-none bg-destructive/10 p-4">
+            <TriangleAlert className="mt-0.5 size-5 shrink-0 text-destructive" />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-destructive">
-                Active alarm
+                {alarmMessages.length > 0
+                  ? "Active alarm"
+                  : "Unrecognized alarm"}
               </p>
-              <p className="text-13 text-muted-foreground">{alarmSummary}</p>
+              {alarmMessages.length > 0 ? (
+                <ul className="text-13 text-muted-foreground">
+                  {alarmMessages.map((message) => (
+                    <li key={message}>{message}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-13 text-muted-foreground">
+                  The BMS reports an alarm that doesn't match a known message.
+                </p>
+              )}
             </div>
           </Card>
         )}
@@ -243,7 +253,13 @@ function HomePage() {
           <div className="divide-y divide-border">
             <InfoRow
               label="Alarms"
-              value={hasAlarm && alarmSummary ? alarmSummary : "None"}
+              value={
+                alarmMessages.length > 0
+                  ? alarmMessages.join(", ")
+                  : hasAlarm
+                    ? "Unrecognized"
+                    : "None"
+              }
               tone={hasAlarm ? "bad" : "good"}
             />
             <InfoRow

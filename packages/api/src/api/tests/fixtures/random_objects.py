@@ -35,6 +35,7 @@ def create_reading(**overrides: Any) -> Reading:
     "temperatures": [33, 33],
     "balancing": None,
     "alarms": None,
+    "alarm_messages": None,
     "raw": {},
   }
   return Reading(**{**defaults, **overrides})

@@ -306,6 +306,22 @@ export const ReadingSchemaSchema = {
       description:
         "Raw alarm registers as hex strings, or null when no alarms are set.",
     },
+    alarm_messages: {
+      anyOf: [
+        {
+          items: {
+            type: "string",
+          },
+          type: "array",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Alarm Messages",
+      description:
+        "Human-readable alarm/warning messages decoded from the alarm registers.",
+    },
   },
   type: "object",
   required: [
@@ -340,6 +356,7 @@ export const ReadingSchemaSchema = {
     "temperatures",
     "balancing",
     "alarms",
+    "alarm_messages",
   ],
   title: "ReadingSchema",
 } as const;

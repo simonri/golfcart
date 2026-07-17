@@ -45,6 +45,7 @@ class ReadingSchema(IDSchema, TimestampedSchema):
   temperatures: list[float] = Field(description="Per-sensor temperatures in °C, ordered by sensor number.")
   balancing: BalancingSchema | None = Field(description="Balancing details, if reported by the BMS.")
   alarms: dict[str, str] | None = Field(description="Raw alarm registers as hex strings, or null when no alarms are set.")
+  alarm_messages: list[str] | None = Field(description="Human-readable alarm/warning messages decoded from the alarm registers.")
 
 
 class ReadingListResponse(ListResource[ReadingSchema]):

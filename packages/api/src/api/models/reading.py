@@ -48,4 +48,5 @@ class Reading(RecordModel):
   temperatures: Mapped[list[float]] = mapped_column(JSON, nullable=False)
   balancing: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
   alarms: Mapped[dict[str, str] | None] = mapped_column(JSON, nullable=True)
+  alarm_messages: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
   raw: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)

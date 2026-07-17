@@ -59,6 +59,7 @@ def _build_reading(result: CaptureResult) -> Reading:
     temperatures=decoded.temperatures,
     balancing=asdict(decoded.balancing) if decoded.balancing else None,
     alarms=decoded.alarms,
+    alarm_messages=decoded.alarm_messages,
     raw={
       "device": {"name": result.device_name, "address": result.device_address},
       "protocol": bms.PROTOCOL,

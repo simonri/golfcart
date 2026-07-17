@@ -62,6 +62,7 @@ class TestDecodeBlocks:
     assert decoded.charging_mosfet is True
     assert decoded.discharging_mosfet is True
     assert decoded.alarms is None
+    assert decoded.alarm_messages is None
 
     assert decoded.balancing is not None
     assert decoded.balancing.balance_current_a == 0.0
@@ -83,6 +84,41 @@ class TestDecodeBlocks:
       "alarm_register_2": "0x0000",
       "alarm_register_3": "0x0000",
     }
+    assert decoded.alarm_messages == [
+      "Critical: Cell voltage too high",
+      "Warning: Charging temperature too high",
+    ]
+
+  def test_decodes_alarm_messages_for_high_soc_reading(self, sample_blocks: dict[str, Any]) -> None:
+    # Matches a real capture at 99.8% SOC: Alarm1=0x0011, others clear.
+    blocks = deepcopy(sample_blocks)
+    blocks["main_0x0000"]["registers"][58] = 0x0011
+
+    decoded = decode_blocks(blocks)
+
+    assert decoded.alarm_messages == [
+      "Warning: Cell voltage too high",
+      "Warning: Total voltage too high",
+    ]
+
+  def test_reserved_alarm_bit_is_labeled_reserved(self, sample_blocks: dict[str, Any]) -> None:
+    blocks = deepcopy(sample_blocks)
+    blocks["main_0x0000"]["registers"][59] = 0x1000
+
+    decoded = decode_blocks(blocks)
+
+    assert decoded.alarm_messages == ["Reserved"]
+
+  def test_alarm4_bits_are_unused(self, sample_blocks: dict[str, Any]) -> None:
+    # Alarm4 (register 61) has no assigned bit meanings; a set bit there still
+    # counts toward has_alarms/raw alarms, but yields no readable message.
+    blocks = deepcopy(sample_blocks)
+    blocks["main_0x0000"]["registers"][61] = 0xFFFF
+
+    decoded = decode_blocks(blocks)
+
+    assert decoded.alarms is not None
+    assert decoded.alarm_messages == []
 
   def test_short_main_block_has_no_balancing(self, sample_blocks: dict[str, Any]) -> None:
     blocks = deepcopy(sample_blocks)
