@@ -1,0 +1,229 @@
+{
+  "timestamp": "2026-07-17T17:32:19.376838+02:00",
+  "device": {
+    "name": "DL-411905019B59",
+    "address": "853CB05A-B0CD-F552-14D1-235AA8C355ED"
+  },
+  "protocol": "daly-modbus-ble",
+  "raw_blocks": {
+    "main_0x0000": {
+      "request": {
+        "start": 0,
+        "count": 80
+      },
+      "frame_hex": "d203a00f8d0f8f0fe30fdf0fc70fca0fe80fe40fd70fcd0fe20fe90fdc0fde0000000000000000000000000000000000000000000000000000000000000000000000000049004900ff00ff00ff00ff00ff00ff023675e001aa0fe90f8d00490049000100d5000e000200020001000100010fd3005c03e400000000000000000000000075300007004affffffffffffffff00000000000000000000000000000000000069ee",
+      "registers": [
+        3981,
+        3983,
+        4067,
+        4063,
+        4039,
+        4042,
+        4072,
+        4068,
+        4055,
+        4045,
+        4066,
+        4073,
+        4060,
+        4062,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        73,
+        73,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        566,
+        30176,
+        426,
+        4073,
+        3981,
+        73,
+        73,
+        1,
+        213,
+        14,
+        2,
+        2,
+        1,
+        1,
+        1,
+        4051,
+        92,
+        996,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        30000,
+        7,
+        74,
+        65535,
+        65535,
+        65535,
+        65535,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "info_0x0050": {
+      "request": {
+        "start": 80,
+        "count": 32
+      },
+      "frame_hex": "d2034000000000000000000000000000003232364b4632373032303132343000000000000000000000ffff0000ffffffffffffffffffffffffffffffffffffffffffffecc7",
+      "registers": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        12850,
+        13899,
+        17970,
+        14128,
+        12848,
+        12594,
+        13360,
+        0,
+        0,
+        0,
+        0,
+        0,
+        65535,
+        0,
+        65535,
+        65535,
+        65535,
+        65535,
+        65535,
+        65535,
+        65535,
+        65535,
+        65535,
+        65535,
+        65535
+      ]
+    },
+    "settings_0x0080": {
+      "request": {
+        "start": 128,
+        "count": 16
+      },
+      "frame_hex": "d2032001f40c800001000e0000000000020000000000010e10100410680af00a8c023a094d",
+      "registers": [
+        500,
+        3200,
+        1,
+        14,
+        0,
+        0,
+        2,
+        0,
+        0,
+        1,
+        3600,
+        4100,
+        4200,
+        2800,
+        2700,
+        570
+      ]
+    }
+  },
+  "decoded": {
+    "Pack": {
+      "total_voltage_v": 56.6,
+      "current_a": 17.6,
+      "power_w": 996.2,
+      "soc_percent": 42.6,
+      "remaining_capacity_ah": 21.3,
+      "mode": "charging",
+      "cycles": 2
+    },
+    "Cell voltages": {
+      "cell_1_v": 3.981,
+      "cell_2_v": 3.983,
+      "cell_3_v": 4.067,
+      "cell_4_v": 4.063,
+      "cell_5_v": 4.039,
+      "cell_6_v": 4.042,
+      "cell_7_v": 4.072,
+      "cell_8_v": 4.068,
+      "cell_9_v": 4.055,
+      "cell_10_v": 4.045,
+      "cell_11_v": 4.066,
+      "cell_12_v": 4.073,
+      "cell_13_v": 4.06,
+      "cell_14_v": 4.062
+    },
+    "Cell voltage stats": {
+      "max_v": 4.073,
+      "min_v": 3.981,
+      "average_v": 4.051,
+      "delta_v": 0.092
+    },
+    "Temperatures": {
+      "sensor_1_c": 33,
+      "sensor_2_c": 33,
+      "max_c": 33,
+      "min_c": 33
+    },
+    "Status": {
+      "cells": 14,
+      "temperature_sensors": 2,
+      "balancer_active": true,
+      "charging_mosfet": true,
+      "discharging_mosfet": true
+    },
+    "Alarms": "none",
+    "Balancing": {
+      "balance_current_a": 0.0,
+      "balancing_cells": [
+        1,
+        2,
+        3
+      ],
+      "mosfet_temperature_c": 34
+    },
+    "Device info": {
+      "model": "226KF270201240"
+    },
+    "Settings": {
+      "rated_capacity_ah": 50.0,
+      "cell_count": 14,
+      "raw": "01f4 0c80 0001 000e 0000 0000 0002 0000 0000 0001 0e10 1004 1068 0af0 0a8c 023a"
+    }
+  }
+}
