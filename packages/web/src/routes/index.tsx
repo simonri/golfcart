@@ -1,12 +1,15 @@
+import { createReadingV1ReadingsPostMutation } from "@bessel/client";
+import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
-import { Moon, TriangleAlert, Zap } from "lucide-react";
+import { BluetoothOff, Loader2, Moon, TriangleAlert, Zap } from "lucide-react";
+import type { ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import { CellVoltageChart } from "@/components/battery/cell-voltage-chart";
 import { CircularGauge } from "@/components/battery/circular-gauge";
 import { InfoRow, PackStat } from "@/components/battery/stat-tile";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { BatteryReading } from "@/data/sample-battery-reading";
-import { sampleBatteryReading } from "@/data/sample-battery-reading";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -14,7 +17,7 @@ export const Route = createFileRoute("/")({
 });
 
 const MODE: Record<
-  BatteryReading["pack"]["mode"],
+  string,
   { label: string; icon: LucideIcon; className: string }
 > = {
   charging: {
@@ -44,30 +47,81 @@ function socTone(socPercent: number) {
   return { arc: "stroke-green-500", track: "stroke-green-500/15" };
 }
 
-function HomePage() {
-  const {
-    pack,
-    cellVoltagesV,
-    cellStats,
-    temperature,
-    status,
-    alarms,
-    balancing,
-    deviceModel,
-  } = sampleBatteryReading;
+function captureErrorMessage(error: unknown): string {
+  if (
+    error &&
+    typeof error === "object" &&
+    "detail" in error &&
+    typeof error.detail === "string"
+  ) {
+    return error.detail;
+  }
+  return "The BMS is unreachable. Make sure it's powered and in range.";
+}
 
-  const mode = MODE[pack.mode];
+function CenteredMessage({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-background px-6 text-center">
+      {children}
+    </div>
+  );
+}
+
+function HomePage() {
+  const capture = useMutation(createReadingV1ReadingsPostMutation());
+  const triggered = useRef(false);
+
+  useEffect(() => {
+    if (triggered.current) return;
+    triggered.current = true;
+    capture.mutate({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (capture.isError) {
+    return (
+      <CenteredMessage>
+        <BluetoothOff className="size-8 text-destructive" />
+        <p className="text-sm font-medium">Couldn't reach the battery</p>
+        <p className="max-w-xs text-13 text-muted-foreground">
+          {captureErrorMessage(capture.error)}
+        </p>
+        <Button variant="outline" onClick={() => capture.mutate({})}>
+          Try again
+        </Button>
+      </CenteredMessage>
+    );
+  }
+
+  if (!capture.data) {
+    return (
+      <CenteredMessage>
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          Reading battery over Bluetooth…
+        </p>
+      </CenteredMessage>
+    );
+  }
+
+  const reading = capture.data;
+  const mode = MODE[reading.mode] ?? MODE.idle;
   const ModeIcon = mode.icon;
-  const tone = socTone(pack.socPercent);
-  const hasAlarm = alarms !== "none";
+  const tone = socTone(reading.soc_percent);
+  const hasAlarm = reading.has_alarms;
+  const alarmSummary = reading.alarms
+    ? Object.values(reading.alarms).join(", ")
+    : null;
+  const balancingCells = reading.balancing?.balancing_cells ?? [];
+  const mosfetTemperatureC = reading.balancing?.mosfet_temperature_c;
 
   const cellSummary = [
-    { label: "Min", value: cellStats.minV.toFixed(3), unit: "V" },
-    { label: "Avg", value: cellStats.averageV.toFixed(3), unit: "V" },
-    { label: "Max", value: cellStats.maxV.toFixed(3), unit: "V" },
+    { label: "Min", value: reading.cell_voltage_min_v.toFixed(3), unit: "V" },
+    { label: "Avg", value: reading.cell_voltage_avg_v.toFixed(3), unit: "V" },
+    { label: "Max", value: reading.cell_voltage_max_v.toFixed(3), unit: "V" },
     {
       label: "Delta",
-      value: String(Math.round(cellStats.deltaV * 1000)),
+      value: String(Math.round(reading.cell_voltage_delta_v * 1000)),
       unit: "mV",
     },
   ];
@@ -77,7 +131,9 @@ function HomePage() {
       <main className="mx-auto flex max-w-md flex-col gap-4 px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(2.5rem,env(safe-area-inset-bottom))]">
         <header className="flex flex-col items-center gap-0.5 pt-1">
           <h1 className="text-xl font-semibold">Battery</h1>
-          <p className="text-13 text-muted-foreground">{deviceModel}</p>
+          <p className="text-13 text-muted-foreground">
+            {reading.device_model ?? reading.device_name ?? "Unknown device"}
+          </p>
         </header>
 
         {hasAlarm && (
@@ -87,21 +143,21 @@ function HomePage() {
               <p className="text-sm font-semibold text-destructive">
                 Active alarm
               </p>
-              <p className="text-13 text-muted-foreground">{alarms}</p>
+              <p className="text-13 text-muted-foreground">{alarmSummary}</p>
             </div>
           </Card>
         )}
 
         <Card className="items-center gap-5 p-6">
           <CircularGauge
-            value={pack.socPercent}
+            value={reading.soc_percent}
             size={176}
             arcClassName={tone.arc}
             trackClassName={tone.track}
           >
             <div className="flex flex-col items-center">
               <span className="text-[40px] leading-none font-bold">
-                {pack.socPercent.toFixed(1)}
+                {reading.soc_percent.toFixed(1)}
                 <span className="ml-0.5 text-xl font-semibold text-muted-foreground">
                   %
                 </span>
@@ -125,18 +181,22 @@ function HomePage() {
           <div className="grid w-full grid-cols-2 gap-x-4 gap-y-4 border-t border-border pt-5">
             <PackStat
               label="Voltage"
-              value={pack.totalVoltageV.toFixed(1)}
+              value={reading.voltage_v.toFixed(1)}
               unit="V"
             />
             <PackStat
               label="Current"
-              value={pack.currentA.toFixed(1)}
+              value={reading.current_a.toFixed(1)}
               unit="A"
             />
-            <PackStat label="Power" value={pack.powerW.toFixed(0)} unit="W" />
+            <PackStat
+              label="Power"
+              value={reading.power_w.toFixed(0)}
+              unit="W"
+            />
             <PackStat
               label="Remaining"
-              value={pack.remainingCapacityAh.toFixed(1)}
+              value={reading.remaining_capacity_ah.toFixed(1)}
               unit="Ah"
             />
           </div>
@@ -145,7 +205,7 @@ function HomePage() {
         <Card className="gap-4 p-5">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold">Cell voltages</h2>
-            {status.balancerActive && (
+            {reading.balancer_active && (
               <span className="flex items-center gap-1.5 text-13 font-medium text-green-500">
                 <span className="size-1.5 rounded-full bg-green-500" />
                 Balancing
@@ -154,8 +214,8 @@ function HomePage() {
           </div>
 
           <CellVoltageChart
-            voltagesV={cellVoltagesV}
-            balancingCells={balancing.balancingCells}
+            voltagesV={reading.cell_voltages}
+            balancingCells={balancingCells}
           />
 
           <div className="grid grid-cols-4 divide-x divide-border rounded-lg border border-border">
@@ -183,44 +243,58 @@ function HomePage() {
           <div className="divide-y divide-border">
             <InfoRow
               label="Alarms"
-              value={hasAlarm ? alarms : "None"}
+              value={hasAlarm && alarmSummary ? alarmSummary : "None"}
               tone={hasAlarm ? "bad" : "good"}
             />
             <InfoRow
               label="Pack temperature"
               value={
-                temperature.minC === temperature.maxC
-                  ? `${temperature.maxC} °C`
-                  : `${temperature.minC}–${temperature.maxC} °C`
+                reading.temperature_min_c === reading.temperature_max_c
+                  ? `${reading.temperature_max_c} °C`
+                  : `${reading.temperature_min_c}–${reading.temperature_max_c} °C`
               }
             />
-            <InfoRow
-              label="MOSFET temperature"
-              value={`${balancing.mosfetTemperatureC} °C`}
-            />
+            {mosfetTemperatureC != null && (
+              <InfoRow
+                label="MOSFET temperature"
+                value={`${mosfetTemperatureC} °C`}
+              />
+            )}
             <InfoRow
               label="Balancer"
-              value={status.balancerActive ? "Active" : "Inactive"}
-              tone={status.balancerActive ? "good" : undefined}
+              value={reading.balancer_active ? "Active" : "Inactive"}
+              tone={reading.balancer_active ? "good" : undefined}
             />
             <InfoRow
               label="Charging MOSFET"
-              value={status.chargingMosfet ? "On" : "Off"}
-              tone={status.chargingMosfet ? "good" : undefined}
+              value={reading.charging_mosfet ? "On" : "Off"}
+              tone={reading.charging_mosfet ? "good" : undefined}
             />
             <InfoRow
               label="Discharging MOSFET"
-              value={status.dischargingMosfet ? "On" : "Off"}
-              tone={status.dischargingMosfet ? "good" : undefined}
+              value={reading.discharging_mosfet ? "On" : "Off"}
+              tone={reading.discharging_mosfet ? "good" : undefined}
             />
-            <InfoRow label="Cycles" value={String(pack.cycles)} />
-            <InfoRow label="Cells" value={String(status.cells)} />
+            <InfoRow label="Cycles" value={String(reading.cycles)} />
+            <InfoRow label="Cells" value={String(reading.cell_count)} />
             <InfoRow
               label="Temperature sensors"
-              value={String(status.temperatureSensors)}
+              value={String(reading.temperature_sensor_count)}
             />
           </div>
         </Card>
+
+        <Button
+          variant="outline"
+          onClick={() => capture.mutate({})}
+          disabled={capture.isPending}
+        >
+          {capture.isPending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            "Capture again"
+          )}
+        </Button>
       </main>
     </div>
   );

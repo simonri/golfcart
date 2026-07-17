@@ -4,6 +4,8 @@ import {
   Outlet,
   Scripts,
 } from "@tanstack/react-router";
+import "@/lib/client";
+
 import { ReactQueryProvider } from "@/providers/react-query";
 
 import appCss from "../styles.css?url";
