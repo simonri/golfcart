@@ -6,19 +6,25 @@ point the endpoints call (and tests mock).
 """
 
 import asyncio
-import logging
 import struct
+import time
 from dataclasses import dataclass
 from typing import Any
 
+import structlog
 from bleak import BleakClient, BleakScanner
 from bleak.exc import BleakError
 
 from api.readings.decode import MAIN_BLOCK, DecodedReading, decode_blocks
 from api.settings import settings
 
-log = logging.getLogger(__name__)
+# NOTE: plain `logging.getLogger(__name__)` is silently dropped in production —
+# api.logging's dictConfig runs with disable_existing_loggers=True *after* this
+# module is imported, which disables any stdlib logger created before it.
+# structlog.get_logger() defers real logger creation until first use, avoiding it.
+log = structlog.get_logger()
 
+SERVICE_UUID = "0000fff0-0000-1000-8000-00805f9b34fb"
 NOTIFY_UUID = "0000fff1-0000-1000-8000-00805f9b34fb"
 WRITE_UUID = "0000fff2-0000-1000-8000-00805f9b34fb"
 
@@ -103,15 +109,17 @@ class DalyModbusBLE:
     return frame.hex(), list(struct.unpack(f">{len(payload) // 2}H", payload))
 
   async def read_block(self, name: str, start: int, count: int, fallback_count: int | None = None) -> dict[str, Any] | None:
+    started = time.monotonic()
     try:
       frame_hex, regs = await self.read_registers(start, count)
     except (TimeoutError, ValueError) as e:
       if fallback_count is None:
-        log.warning("Block %s not available (%s)", name, e or "timeout")
+        log.warning("bms.block.unavailable", block=name, error=str(e) or "timeout", duration_s=round(time.monotonic() - started, 2))
         return None
-      log.info("Block %s: count 0x%02x failed, retrying with 0x%02x", name, count, fallback_count)
+      log.info("bms.block.retry_with_fallback", block=name, count=count, fallback_count=fallback_count)
       count = fallback_count
       frame_hex, regs = await self.read_registers(start, count)
+    log.info("bms.block.read", block=name, count=count, duration_s=round(time.monotonic() - started, 2))
     return {
       "request": {"start": start, "count": count},
       "frame_hex": frame_hex,
@@ -119,34 +127,43 @@ class DalyModbusBLE:
     }
 
   async def read_all(self) -> dict[str, Any]:
+    started = time.monotonic()
     blocks = {}
     for name, start, count, fallback in (BLOCK_MAIN, BLOCK_INFO, BLOCK_SETTINGS):
       block = await self.read_block(name, start, count, fallback)
       if block:
         blocks[name] = block
+    log.info("bms.read_all.done", duration_s=round(time.monotonic() - started, 2), blocks=list(blocks))
     return blocks
 
 
 async def _scan() -> tuple[str, str | None]:
+  started = time.monotonic()
   devices = await BleakScanner.discover(timeout=settings.BMS_SCAN_TIMEOUT)
+  duration_s = round(time.monotonic() - started, 2)
   candidates = [d for d in devices if looks_like_daly(d.name)]
   if not candidates:
+    log.warning("bms.scan.no_match", duration_s=duration_s, devices_seen=len(devices))
     raise BmsUnreachableError("no Daly BMS found during Bluetooth scan; make sure it is powered and no other app is connected to it")
   if len(candidates) > 1:
-    log.warning("Multiple Daly candidates found, using the first: %s", ", ".join(f"{d.name} ({d.address})" for d in candidates))
+    log.warning("bms.scan.multiple_candidates", candidates=[f"{d.name} ({d.address})" for d in candidates])
   device = candidates[0]
-  log.info("Detected Daly BMS: %s (%s)", device.name, device.address)
+  log.info("bms.scan.found", device_name=device.name, device_address=device.address, duration_s=duration_s)
   return device.address, device.name
 
 
 async def _capture_from(address: str, name: str | None) -> CaptureResult:
+  started = time.monotonic()
   try:
-    async with BleakClient(address, timeout=settings.BMS_CONNECT_TIMEOUT) as client:
+    async with BleakClient(address, services=[SERVICE_UUID], timeout=settings.BMS_CONNECT_TIMEOUT) as client:
+      connected_s = round(time.monotonic() - started, 2)
       bms = DalyModbusBLE(client)
       await bms.start()
       blocks = await bms.read_all()
   except (BleakError, TimeoutError, OSError, ValueError) as e:
+    log.warning("bms.connect.failed", address=address, duration_s=round(time.monotonic() - started, 2), error=str(e) or type(e).__name__)
     raise BmsUnreachableError(str(e) or type(e).__name__) from e
+  log.info("bms.capture.done", address=address, connect_s=connected_s, total_s=round(time.monotonic() - started, 2))
   return CaptureResult(device_name=name, device_address=address, blocks=blocks, decoded=decode_blocks(blocks))
 
 
@@ -155,17 +172,21 @@ async def capture_reading() -> CaptureResult:
   read all register blocks. Raises BmsUnreachableError on any failure."""
   global _discovered
 
-  if settings.BMS_ADDRESS:
-    return await _capture_from(settings.BMS_ADDRESS, None)
+  started = time.monotonic()
+  try:
+    if settings.BMS_ADDRESS:
+      return await _capture_from(settings.BMS_ADDRESS, None)
 
-  if _discovered is not None:
-    address, name = _discovered
-    try:
-      return await _capture_from(address, name)
-    except BmsUnreachableError as e:
-      log.info("Cached BMS %s unreachable (%s), rescanning", address, e)
-      _discovered = None
+    if _discovered is not None:
+      address, name = _discovered
+      try:
+        return await _capture_from(address, name)
+      except BmsUnreachableError as e:
+        log.info("bms.cache.stale_rescanning", address=address, error=str(e))
+        _discovered = None
 
-  address, name = await _scan()
-  _discovered = (address, name)
-  return await _capture_from(address, name)
+    address, name = await _scan()
+    _discovered = (address, name)
+    return await _capture_from(address, name)
+  finally:
+    log.info("bms.capture_reading.total", duration_s=round(time.monotonic() - started, 2))
