@@ -44,8 +44,9 @@ class Settings(BaseSettings):
   # BMS (Daly, Bluetooth LE)
   BMS_ADDRESS: str | None = Field(default=None, description="BLE address of the BMS; skips scanning when set.")
   BMS_SCAN_TIMEOUT: float = 10.0
-  BMS_CONNECT_TIMEOUT: float = 15.0
+  BMS_CONNECT_TIMEOUT: float = 20.0
   BMS_RESPONSE_TIMEOUT: float = 5.0
+  BMS_CONNECT_ATTEMPTS: int = 2
 
   # Sentry
   SENTRY_DSN: str | None = None

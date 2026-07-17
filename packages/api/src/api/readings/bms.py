@@ -152,19 +152,45 @@ async def _scan() -> tuple[str, str | None]:
   return device.address, device.name
 
 
+async def _connect_and_read(address: str) -> dict[str, Any]:
+  async with BleakClient(address, services=[SERVICE_UUID], timeout=settings.BMS_CONNECT_TIMEOUT) as client:
+    bms = DalyModbusBLE(client)
+    await bms.start()
+    return await bms.read_all()
+
+
 async def _capture_from(address: str, name: str | None) -> CaptureResult:
+  """Connect and read, retrying transient BLE connect failures — connection
+  establishment time to this hardware is highly variable, and a fresh attempt
+  often succeeds well within BMS_CONNECT_TIMEOUT even after one attempt times out."""
   started = time.monotonic()
-  try:
-    async with BleakClient(address, services=[SERVICE_UUID], timeout=settings.BMS_CONNECT_TIMEOUT) as client:
-      connected_s = round(time.monotonic() - started, 2)
-      bms = DalyModbusBLE(client)
-      await bms.start()
-      blocks = await bms.read_all()
-  except (BleakError, TimeoutError, OSError, ValueError) as e:
-    log.warning("bms.connect.failed", address=address, duration_s=round(time.monotonic() - started, 2), error=str(e) or type(e).__name__)
-    raise BmsUnreachableError(str(e) or type(e).__name__) from e
-  log.info("bms.capture.done", address=address, connect_s=connected_s, total_s=round(time.monotonic() - started, 2))
-  return CaptureResult(device_name=name, device_address=address, blocks=blocks, decoded=decode_blocks(blocks))
+  last_error: Exception | None = None
+
+  for attempt in range(1, settings.BMS_CONNECT_ATTEMPTS + 1):
+    attempt_started = time.monotonic()
+    try:
+      blocks = await _connect_and_read(address)
+    except (BleakError, TimeoutError, OSError, ValueError) as e:
+      last_error = e
+      log.warning(
+        "bms.connect.attempt_failed",
+        address=address,
+        attempt=attempt,
+        of=settings.BMS_CONNECT_ATTEMPTS,
+        duration_s=round(time.monotonic() - attempt_started, 2),
+        error=str(e) or type(e).__name__,
+      )
+      continue
+    log.info("bms.capture.done", address=address, attempt=attempt, total_s=round(time.monotonic() - started, 2))
+    return CaptureResult(device_name=name, device_address=address, blocks=blocks, decoded=decode_blocks(blocks))
+
+  total_s = round(time.monotonic() - started, 2)
+  if isinstance(last_error, TimeoutError):
+    message = f"BLE connect timed out after {settings.BMS_CONNECT_ATTEMPTS} attempt(s) ({total_s}s total)"
+  else:
+    message = str(last_error) or type(last_error).__name__
+  log.warning("bms.connect.failed", address=address, attempts=settings.BMS_CONNECT_ATTEMPTS, total_s=total_s, error=message)
+  raise BmsUnreachableError(message)
 
 
 async def capture_reading() -> CaptureResult:

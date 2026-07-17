@@ -138,6 +138,34 @@ class TestDecodeBlocks:
     assert decoded.rated_capacity_ah is None
 
 
+class TestCaptureFromRetry:
+  @pytest.mark.asyncio
+  async def test_succeeds_after_one_transient_timeout(self, mocker: MockerFixture, sample_blocks: dict[str, Any]) -> None:
+    connect = mocker.patch("api.readings.bms._connect_and_read", side_effect=[TimeoutError(), sample_blocks])
+
+    result = await bms._capture_from("AA:BB:CC:DD:EE:FF", "DL-TEST")
+
+    assert connect.call_count == 2
+    assert result.device_address == "AA:BB:CC:DD:EE:FF"
+    assert result.blocks == sample_blocks
+
+  @pytest.mark.asyncio
+  async def test_raises_clear_message_after_exhausting_attempts(self, mocker: MockerFixture) -> None:
+    connect = mocker.patch("api.readings.bms._connect_and_read", side_effect=TimeoutError())
+
+    with pytest.raises(BmsUnreachableError, match="BLE connect timed out after 2 attempt"):
+      await bms._capture_from("AA:BB:CC:DD:EE:FF", "DL-TEST")
+
+    assert connect.call_count == 2
+
+  @pytest.mark.asyncio
+  async def test_non_timeout_error_message_is_preserved(self, mocker: MockerFixture) -> None:
+    mocker.patch("api.readings.bms._connect_and_read", side_effect=OSError("bluetooth adapter not found"))
+
+    with pytest.raises(BmsUnreachableError, match="bluetooth adapter not found"):
+      await bms._capture_from("AA:BB:CC:DD:EE:FF", "DL-TEST")
+
+
 class TestCaptureReading:
   @pytest.mark.asyncio
   async def test_capture_persists_and_returns_reading(self, client: AsyncClient, mocker: MockerFixture, sample_capture: CaptureResult) -> None:
