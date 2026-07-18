@@ -33,6 +33,6 @@ cd packages/api && uv sync && uv run task db_migrate && uv run task api   # API 
 cd packages/web && pnpm install && pnpm dev                              # web on :3001
 ```
 
-No golf cart? Set `bessel_BMS_SIMULATOR=1` before starting the API. A simulated pack drains from 100% to 20% and charges back up on a one-hour loop, emitting the same CRC-valid register frames as the real BMS - the entire decode/store/chart pipeline runs unchanged, including the low-SOC alarm and end-of-charge balancing.
+No golf cart? Set `golfcart_BMS_SIMULATOR=1` before starting the API. A simulated pack drains from 100% to 20% and charges back up on a one-hour loop, emitting the same CRC-valid register frames as the real BMS - the entire decode/store/chart pipeline runs unchanged, including the low-SOC alarm and end-of-charge balancing.
 
 Deploys with `make deploy`: pushes, then pulls + migrates + restarts the systemd service on the Pi over Tailscale.
