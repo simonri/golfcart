@@ -33,7 +33,7 @@ def configure_cors(app: FastAPI) -> None:
     frontend_config = CORSConfig(
       frontend_matcher,
       allow_origins=[str(origin) for origin in settings.CORS_ORIGINS],
-      allow_credentials=True,
+      allow_credentials=False,
       allow_methods=["*"],
       allow_headers=["*"],
     )
