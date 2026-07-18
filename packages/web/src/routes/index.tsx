@@ -64,7 +64,13 @@ function captureErrorMessage(error: unknown): string {
   ) {
     return error.detail;
   }
-  return "The BMS is unreachable. Make sure it's powered and in range.";
+  const raw =
+    error instanceof Error
+      ? `${error.name}: ${error.message}`
+      : typeof error === "string"
+        ? error
+        : JSON.stringify(error);
+  return `The BMS is unreachable. Make sure it's powered and in range. (${raw})`;
 }
 
 function CenteredMessage({ children }: { children: ReactNode }) {
