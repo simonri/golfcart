@@ -43,7 +43,7 @@ export function CellVoltageChart({
     <div className="select-none">
       <div className="flex h-5 items-baseline justify-between">
         <span className="text-13 text-muted-foreground">
-          {selected == null ? "Tap a cell to inspect" : `Cell ${selected}`}
+          {selected != null && `Cell ${selected}`}
         </span>
         {selectedV != null && (
           <span className="text-13 font-semibold tabular-nums">

@@ -66,9 +66,7 @@ export function SocHistoryChart({ buckets }: SocHistoryChartProps) {
     <div className="select-none">
       <div className="flex h-5 items-baseline justify-between">
         <span className="text-13 text-muted-foreground">
-          {selectedBucket
-            ? formatBucketTime(selectedBucket.bucket_start)
-            : "Tap the chart to inspect"}
+          {selectedBucket && formatBucketTime(selectedBucket.bucket_start)}
         </span>
         {selectedBucket?.soc_percent != null && (
           <span className="text-13 font-semibold tabular-nums">
