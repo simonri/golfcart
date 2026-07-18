@@ -19,6 +19,7 @@ from api.readings.connection import BmsConnection
 from api.readings.decode import decode_blocks
 from api.readings.history import BUCKET_COUNT, HistoryPeriod, build_soc_history
 from api.readings.repository import ReadingRepository
+from api.readings.simulator import DISCHARGE_FRACTION, SIMULATOR_ADDRESS, SOC_MIN, build_blocks
 from api.settings import settings
 from api.tests.fixtures.database import SaveFixture
 from api.tests.fixtures.random_objects import create_reading
@@ -342,6 +343,57 @@ class TestBmsConnection:
 
     assert connection.is_connected is False
     assert fake_client.disconnect.await_count == 1
+
+
+class TestSimulator:
+  def test_discharge_phase_decodes_as_discharging(self) -> None:
+    cycle = settings.BMS_SIMULATOR_CYCLE_S
+    decoded = decode_blocks(build_blocks(cycle * DISCHARGE_FRACTION / 2))
+
+    assert decoded.mode == "discharging"
+    assert decoded.current_a < 0
+    assert SOC_MIN <= decoded.soc_percent <= 100
+    assert decoded.cell_count == 14
+    assert len(decoded.cell_voltages) == 14
+    assert 40 < decoded.voltage_v < 62
+    assert decoded.rated_capacity_ah == 50.0
+    assert decoded.device_model == "DL-SIMULATOR"
+    assert decoded.alarms is None
+
+  def test_charge_phase_decodes_as_charging(self) -> None:
+    cycle = settings.BMS_SIMULATOR_CYCLE_S
+    decoded = decode_blocks(build_blocks(cycle * (DISCHARGE_FRACTION + 1) / 2))
+
+    assert decoded.mode == "charging"
+    assert decoded.current_a > 0
+    assert decoded.alarms is None
+
+  def test_low_soc_raises_warning_alarm(self) -> None:
+    cycle = settings.BMS_SIMULATOR_CYCLE_S
+    decoded = decode_blocks(build_blocks(cycle * DISCHARGE_FRACTION * 0.999))
+
+    assert decoded.soc_percent < 25
+    assert decoded.alarms is not None
+    assert decoded.alarm_messages == ["Warning: SOC too low"]
+
+  def test_balancer_engages_near_full_charge(self) -> None:
+    cycle = settings.BMS_SIMULATOR_CYCLE_S
+    decoded = decode_blocks(build_blocks(cycle * 0.999))
+
+    assert decoded.soc_percent > 95
+    assert decoded.balancer_active is True
+    assert decoded.balancing is not None
+    assert decoded.balancing.balancing_cells
+
+  @pytest.mark.asyncio
+  async def test_connection_uses_simulator_when_enabled(self, mocker: MockerFixture, connection: BmsConnection) -> None:
+    mocker.patch.object(settings, "BMS_SIMULATOR", True)
+
+    result = await connection.read_now()
+
+    assert connection.is_connected is True
+    assert result.device_address == SIMULATOR_ADDRESS
+    assert SOC_MIN <= result.decoded.soc_percent <= 100
 
 
 class TestCaptureReading:

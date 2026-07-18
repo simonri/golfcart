@@ -53,6 +53,8 @@ class Settings(BaseSettings):
   BMS_QUIET_HOURS_END_H: int = Field(default=9, description="Local hour (exclusive) the BMS resumes connecting at.")
   BMS_QUIET_HOURS_TZ: str = "Europe/Stockholm"
   BMS_QUIET_HOURS_CHECK_S: float = 60.0
+  BMS_SIMULATOR: bool = Field(default=False, description="Simulate the BMS instead of connecting over Bluetooth; for local development.")
+  BMS_SIMULATOR_CYCLE_S: float = Field(default=3600.0, description="Length of one full simulated discharge+charge cycle in seconds.")
 
   # Sentry
   SENTRY_DSN: str | None = None

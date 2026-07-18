@@ -27,6 +27,7 @@ from api.readings import bms
 from api.readings.bms import BmsUnreachableError, CaptureResult, DalyModbusBLE
 from api.readings.decode import decode_blocks
 from api.readings.persist import persist_reading
+from api.readings.simulator import SIMULATOR_ADDRESS, SimulatedClient, SimulatedDalyBms
 from api.settings import settings
 
 log = structlog.get_logger()
@@ -34,8 +35,8 @@ log = structlog.get_logger()
 
 class BmsConnection:
   def __init__(self) -> None:
-    self._client: BleakClient | None = None
-    self._daly: DalyModbusBLE | None = None
+    self._client: BleakClient | SimulatedClient | None = None
+    self._daly: DalyModbusBLE | SimulatedDalyBms | None = None
     self._address: str | None = None
     self._io_lock = asyncio.Lock()
     self._disconnected_event = asyncio.Event()
@@ -113,6 +114,12 @@ class BmsConnection:
   async def _connect(self) -> None:
     async with self._io_lock:
       if self.is_connected:
+        return
+
+      if settings.BMS_SIMULATOR:
+        self._client, self._daly, self._address = SimulatedClient(), SimulatedDalyBms(), SIMULATOR_ADDRESS
+        self._disconnected_event.clear()
+        log.info("bms.simulator.connected", cycle_s=settings.BMS_SIMULATOR_CYCLE_S)
         return
 
       address = await self._resolve_address()
