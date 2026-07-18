@@ -6,6 +6,7 @@ import type {
   CreateTaskV1TasksPostResponse,
   GetLatestReadingV1ReadingsLatestGetResponse,
   GetReadingV1ReadingsReadingIdGetResponse,
+  GetSocHistoryV1ReadingsSocHistoryGetResponse,
   GetTaskV1TasksTaskIdGetResponse,
   ListReadingsV1ReadingsGetResponse,
   ListTasksV1TasksGetResponse,
@@ -119,6 +120,25 @@ export const getLatestReadingV1ReadingsLatestGetResponseTransformer = async (
   data: any,
 ): Promise<GetLatestReadingV1ReadingsLatestGetResponse> => {
   data = readingSchemaSchemaResponseTransformer(data);
+  return data;
+};
+
+const socHistoryBucketSchemaSchemaResponseTransformer = (data: any) => {
+  data.bucket_start = new Date(data.bucket_start);
+  return data;
+};
+
+const socHistoryResponseSchemaResponseTransformer = (data: any) => {
+  data.buckets = data.buckets.map((item: any) =>
+    socHistoryBucketSchemaSchemaResponseTransformer(item),
+  );
+  return data;
+};
+
+export const getSocHistoryV1ReadingsSocHistoryGetResponseTransformer = async (
+  data: any,
+): Promise<GetSocHistoryV1ReadingsSocHistoryGetResponse> => {
+  data = socHistoryResponseSchemaResponseTransformer(data);
   return data;
 };
 

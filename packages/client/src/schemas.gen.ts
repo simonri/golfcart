@@ -59,6 +59,12 @@ export const HTTPValidationErrorSchema = {
   title: "HTTPValidationError",
 } as const;
 
+export const HistoryPeriodSchema = {
+  type: "string",
+  enum: ["5m", "1h"],
+  title: "HistoryPeriod",
+} as const;
+
 export const PaginationSchema = {
   properties: {
     total_count: {
@@ -378,6 +384,54 @@ export const RruleFrequencySchema = {
   type: "string",
   enum: ["daily", "weekly", "monthly", "yearly"],
   title: "RruleFrequency",
+} as const;
+
+export const SocHistoryBucketSchemaSchema = {
+  properties: {
+    bucket_start: {
+      type: "string",
+      format: "date-time",
+      title: "Bucket Start",
+      description: "Start of this bucket, UTC.",
+    },
+    soc_percent: {
+      anyOf: [
+        {
+          type: "number",
+        },
+        {
+          type: "null",
+        },
+      ],
+      title: "Soc Percent",
+      description:
+        "Average state of charge in this bucket, or the last known value carried forward when the bucket has no readings.",
+    },
+    has_data: {
+      type: "boolean",
+      title: "Has Data",
+      description: "Whether a reading actually fell in this bucket.",
+    },
+  },
+  type: "object",
+  required: ["bucket_start", "soc_percent", "has_data"],
+  title: "SocHistoryBucketSchema",
+} as const;
+
+export const SocHistoryResponseSchema = {
+  properties: {
+    buckets: {
+      items: {
+        $ref: "#/components/schemas/SocHistoryBucketSchema",
+      },
+      type: "array",
+      title: "Buckets",
+      description: "The most recent 30 buckets, oldest first.",
+    },
+  },
+  type: "object",
+  required: ["buckets"],
+  title: "SocHistoryResponse",
 } as const;
 
 export const TaskCompleteResponseSchema = {

@@ -5,11 +5,18 @@ poll (saved to history) and on-demand reads triggered by API requests.
 The cart is only in Bluetooth range of this host when idle/charging near it —
 there is no separate "is the cart idle" check; reconnect-with-backoff and a
 no-op while unreachable naturally produces exactly that behavior.
+
+Outside of that, the connection is also deliberately dropped during a nightly
+quiet-hours window (BMS_QUIET_HOURS_*, local time) so the BMS isn't held open
+around the clock; the reconnect loop stands down for the window and a
+dedicated loop disconnects if the window starts while still connected.
 """
 
 import asyncio
 import contextlib
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import structlog
 from bleak import BleakClient
@@ -36,6 +43,7 @@ class BmsConnection:
     self._sessionmaker: AsyncSessionMaker | None = None
     self._reconnect_task: asyncio.Task[None] | None = None
     self._poll_task: asyncio.Task[None] | None = None
+    self._quiet_hours_task: asyncio.Task[None] | None = None
 
   @property
   def is_connected(self) -> bool:
@@ -49,17 +57,23 @@ class BmsConnection:
     self._sessionmaker = sessionmaker
     self._reconnect_task = asyncio.create_task(self._reconnect_loop(), name="bms-reconnect")
     self._poll_task = asyncio.create_task(self._poll_loop(), name="bms-poll")
+    self._quiet_hours_task = asyncio.create_task(self._quiet_hours_loop(), name="bms-quiet-hours")
 
   async def stop(self) -> None:
-    for task in (self._poll_task, self._reconnect_task):
+    tasks = (self._poll_task, self._reconnect_task, self._quiet_hours_task)
+    for task in tasks:
       if task:
         task.cancel()
-    for task in (self._poll_task, self._reconnect_task):
+    for task in tasks:
       if task:
         with contextlib.suppress(asyncio.CancelledError):
           await task
     if self._client is not None and self._client.is_connected:
       await self._client.disconnect()
+
+  def _in_quiet_hours(self) -> bool:
+    hour = datetime.now(ZoneInfo(settings.BMS_QUIET_HOURS_TZ)).hour
+    return settings.BMS_QUIET_HOURS_START_H <= hour < settings.BMS_QUIET_HOURS_END_H
 
   async def read_now(self) -> CaptureResult:
     """Used by the on-demand endpoint. Tries to connect immediately if not
@@ -145,6 +159,9 @@ class BmsConnection:
     while True:
       await self._disconnected_event.wait()
       try:
+        if self._in_quiet_hours():
+          await asyncio.sleep(settings.BMS_QUIET_HOURS_CHECK_S)
+          continue
         await self._connect()
       except BmsUnreachableError as e:
         log.info("bms.reconnect.retry_scheduled", error=str(e), backoff_s=settings.BMS_RECONNECT_BACKOFF_S)
@@ -152,6 +169,18 @@ class BmsConnection:
       except Exception:
         log.exception("bms.reconnect_loop.unexpected_error")
         await asyncio.sleep(settings.BMS_RECONNECT_BACKOFF_S)
+
+  async def _quiet_hours_loop(self) -> None:
+    """Proactively drops an already-open connection once the quiet-hours
+    window starts; the reconnect loop's own check keeps it down from there."""
+    while True:
+      await asyncio.sleep(settings.BMS_QUIET_HOURS_CHECK_S)
+      try:
+        if self._in_quiet_hours() and self.is_connected:
+          log.info("bms.quiet_hours.disconnecting", address=self._address)
+          await self._mark_disconnected()
+      except Exception:
+        log.exception("bms.quiet_hours_loop.unexpected_error")
 
   async def _poll_loop(self) -> None:
     while True:

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Annotated
 from uuid import UUID
@@ -7,11 +7,13 @@ from fastapi import APIRouter, Depends, Query
 
 from api.common.pagination import PaginationParamsQuery
 from api.common.sorting import Sorting, SortingGetter
+from api.common.utils import utc_now
 from api.database import AsyncSession, get_db_session
 from api.exceptions import ResourceNotFound, ServiceUnavailableError
 from api.models.reading import Reading
 from api.readings.bms import BmsUnreachableError
 from api.readings.connection import connection
+from api.readings.history import BUCKET_COUNT, HistoryPeriod, SocHistoryResponse, build_soc_history
 from api.readings.persist import persist_reading
 from api.readings.repository import ReadingRepository
 from api.readings.schemas import ReadingListResponse, ReadingSchema
@@ -26,6 +28,8 @@ class ReadingSortProperty(StrEnum):
 
 
 sorting_getter = SortingGetter(ReadingSortProperty, default_sorting=["-created_at"])
+
+DEFAULT_HISTORY_PERIOD = HistoryPeriod.one_hour
 
 
 @router.post(
@@ -95,6 +99,26 @@ async def get_latest_reading(
   if reading is None:
     raise ResourceNotFound("No readings yet")
   return ReadingSchema.model_validate(reading)
+
+
+# Registered before /{reading_id} — see the note on /latest above.
+@router.get(
+  "/soc-history",
+  summary="Get SOC History",
+  response_model=SocHistoryResponse,
+)
+async def get_soc_history(
+  session: Annotated[AsyncSession, Depends(get_db_session)],
+  period: Annotated[HistoryPeriod, Query(description="Bucket width.")] = DEFAULT_HISTORY_PERIOD,
+) -> SocHistoryResponse:
+  repo = ReadingRepository.from_session(session)
+  now = utc_now()
+  window_start = now - timedelta(seconds=period.bucket_seconds * BUCKET_COUNT)
+
+  raw_buckets = await repo.get_soc_buckets(period.bucket_seconds, window_start)
+  seed_soc = await repo.get_soc_before(window_start)
+
+  return SocHistoryResponse(buckets=build_soc_history(raw_buckets, seed_soc, period, now))
 
 
 @router.get(

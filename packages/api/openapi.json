@@ -719,6 +719,50 @@
         }
       }
     },
+    "/v1/readings/soc-history": {
+      "get": {
+        "tags": [
+          "readings"
+        ],
+        "summary": "Get SOC History",
+        "operationId": "get_soc_history_v1_readings_soc_history_get",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/HistoryPeriod",
+              "description": "Bucket width.",
+              "default": "1h"
+            },
+            "description": "Bucket width."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocHistoryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/readings/{reading_id}": {
       "get": {
         "tags": [
@@ -824,6 +868,14 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "HistoryPeriod": {
+        "type": "string",
+        "enum": [
+          "5m",
+          "1h"
+        ],
+        "title": "HistoryPeriod"
       },
       "Pagination": {
         "properties": {
@@ -1147,6 +1199,57 @@
           "yearly"
         ],
         "title": "RruleFrequency"
+      },
+      "SocHistoryBucketSchema": {
+        "properties": {
+          "bucket_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Bucket Start",
+            "description": "Start of this bucket, UTC."
+          },
+          "soc_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Soc Percent",
+            "description": "Average state of charge in this bucket, or the last known value carried forward when the bucket has no readings."
+          },
+          "has_data": {
+            "type": "boolean",
+            "title": "Has Data",
+            "description": "Whether a reading actually fell in this bucket."
+          }
+        },
+        "type": "object",
+        "required": [
+          "bucket_start",
+          "soc_percent",
+          "has_data"
+        ],
+        "title": "SocHistoryBucketSchema"
+      },
+      "SocHistoryResponse": {
+        "properties": {
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/SocHistoryBucketSchema"
+            },
+            "type": "array",
+            "title": "Buckets",
+            "description": "The most recent 30 buckets, oldest first."
+          }
+        },
+        "type": "object",
+        "required": [
+          "buckets"
+        ],
+        "title": "SocHistoryResponse"
       },
       "TaskCompleteResponse": {
         "properties": {

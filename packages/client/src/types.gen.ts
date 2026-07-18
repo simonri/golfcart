@@ -45,6 +45,16 @@ export type HttpValidationError = {
 };
 
 /**
+ * HistoryPeriod
+ */
+export const HistoryPeriod = { "5M": "5m", "1H": "1h" } as const;
+
+/**
+ * HistoryPeriod
+ */
+export type HistoryPeriod = (typeof HistoryPeriod)[keyof typeof HistoryPeriod];
+
+/**
  * Pagination
  */
 export type Pagination = {
@@ -300,6 +310,42 @@ export const RruleFrequency = {
  */
 export type RruleFrequency =
   (typeof RruleFrequency)[keyof typeof RruleFrequency];
+
+/**
+ * SocHistoryBucketSchema
+ */
+export type SocHistoryBucketSchema = {
+  /**
+   * Bucket Start
+   *
+   * Start of this bucket, UTC.
+   */
+  bucket_start: Date;
+  /**
+   * Soc Percent
+   *
+   * Average state of charge in this bucket, or the last known value carried forward when the bucket has no readings.
+   */
+  soc_percent: number | null;
+  /**
+   * Has Data
+   *
+   * Whether a reading actually fell in this bucket.
+   */
+  has_data: boolean;
+};
+
+/**
+ * SocHistoryResponse
+ */
+export type SocHistoryResponse = {
+  /**
+   * Buckets
+   *
+   * The most recent 30 buckets, oldest first.
+   */
+  buckets: Array<SocHistoryBucketSchema>;
+};
 
 /**
  * TaskCompleteResponse
@@ -1040,6 +1086,38 @@ export type GetLatestReadingV1ReadingsLatestGetResponses = {
 
 export type GetLatestReadingV1ReadingsLatestGetResponse =
   GetLatestReadingV1ReadingsLatestGetResponses[keyof GetLatestReadingV1ReadingsLatestGetResponses];
+
+export type GetSocHistoryV1ReadingsSocHistoryGetData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Bucket width.
+     */
+    period?: HistoryPeriod;
+  };
+  url: "/v1/readings/soc-history";
+};
+
+export type GetSocHistoryV1ReadingsSocHistoryGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetSocHistoryV1ReadingsSocHistoryGetError =
+  GetSocHistoryV1ReadingsSocHistoryGetErrors[keyof GetSocHistoryV1ReadingsSocHistoryGetErrors];
+
+export type GetSocHistoryV1ReadingsSocHistoryGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: SocHistoryResponse;
+};
+
+export type GetSocHistoryV1ReadingsSocHistoryGetResponse =
+  GetSocHistoryV1ReadingsSocHistoryGetResponses[keyof GetSocHistoryV1ReadingsSocHistoryGetResponses];
 
 export type GetReadingV1ReadingsReadingIdGetData = {
   body?: never;

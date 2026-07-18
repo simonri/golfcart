@@ -1,16 +1,24 @@
-import { createReadingV1ReadingsPostMutation } from "@bessel/client";
-import { useMutation } from "@tanstack/react-query";
+import type { HistoryPeriod } from "@bessel/client";
+import {
+  createReadingV1ReadingsPostMutation,
+  getSocHistoryV1ReadingsSocHistoryGetOptions,
+} from "@bessel/client";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
 import { BluetoothOff, Loader2, Moon, TriangleAlert, Zap } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CellVoltageChart } from "@/components/battery/cell-voltage-chart";
 import { CircularGauge } from "@/components/battery/circular-gauge";
+import { SocHistoryChart } from "@/components/battery/soc-history-chart";
 import { InfoRow, PackStat } from "@/components/battery/stat-tile";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
+
+const HISTORY_REFETCH_INTERVAL_MS = 60_000;
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -70,6 +78,13 @@ function CenteredMessage({ children }: { children: ReactNode }) {
 function HomePage() {
   const capture = useMutation(createReadingV1ReadingsPostMutation());
   const triggered = useRef(false);
+  const [historyPeriod, setHistoryPeriod] = useState<HistoryPeriod>("1h");
+  const history = useQuery({
+    ...getSocHistoryV1ReadingsSocHistoryGetOptions({
+      query: { period: historyPeriod },
+    }),
+    refetchInterval: HISTORY_REFETCH_INTERVAL_MS,
+  });
 
   useEffect(() => {
     if (triggered.current) return;
@@ -210,6 +225,33 @@ function HomePage() {
               unit="Ah"
             />
           </div>
+        </Card>
+
+        <Card className="gap-4 p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">History</h2>
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              size="sm"
+              value={historyPeriod}
+              onValueChange={(value) => {
+                if (value) setHistoryPeriod(value as HistoryPeriod);
+              }}
+            >
+              <ToggleGroupItem value="5m">5m</ToggleGroupItem>
+              <ToggleGroupItem value="1h">1h</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+
+          {history.data ? (
+            <SocHistoryChart buckets={history.data.buckets} />
+          ) : (
+            <div
+              className="animate-pulse rounded-lg bg-muted"
+              style={{ height: 96 }}
+            />
+          )}
         </Card>
 
         <Card className="gap-4 p-5">

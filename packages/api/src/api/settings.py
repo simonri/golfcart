@@ -49,6 +49,10 @@ class Settings(BaseSettings):
   BMS_CONNECT_ATTEMPTS: int = 2
   BMS_POLL_INTERVAL_S: float = 60.0
   BMS_RECONNECT_BACKOFF_S: float = 20.0
+  BMS_QUIET_HOURS_START_H: int = Field(default=2, description="Local hour (inclusive) the BMS stays disconnected from.")
+  BMS_QUIET_HOURS_END_H: int = Field(default=9, description="Local hour (exclusive) the BMS resumes connecting at.")
+  BMS_QUIET_HOURS_TZ: str = "Europe/Stockholm"
+  BMS_QUIET_HOURS_CHECK_S: float = 60.0
 
   # Sentry
   SENTRY_DSN: str | None = None

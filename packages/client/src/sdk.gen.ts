@@ -12,6 +12,7 @@ import {
   createTaskV1TasksPostResponseTransformer,
   getLatestReadingV1ReadingsLatestGetResponseTransformer,
   getReadingV1ReadingsReadingIdGetResponseTransformer,
+  getSocHistoryV1ReadingsSocHistoryGetResponseTransformer,
   getTaskV1TasksTaskIdGetResponseTransformer,
   listReadingsV1ReadingsGetResponseTransformer,
   listTasksV1TasksGetResponseTransformer,
@@ -35,6 +36,9 @@ import type {
   GetReadingV1ReadingsReadingIdGetData,
   GetReadingV1ReadingsReadingIdGetErrors,
   GetReadingV1ReadingsReadingIdGetResponses,
+  GetSocHistoryV1ReadingsSocHistoryGetData,
+  GetSocHistoryV1ReadingsSocHistoryGetErrors,
+  GetSocHistoryV1ReadingsSocHistoryGetResponses,
   GetTaskV1TasksTaskIdGetData,
   GetTaskV1TasksTaskIdGetErrors,
   GetTaskV1TasksTaskIdGetResponses,
@@ -296,6 +300,25 @@ export const getLatestReadingV1ReadingsLatestGet = <
   >({
     responseTransformer: getLatestReadingV1ReadingsLatestGetResponseTransformer,
     url: "/v1/readings/latest",
+    ...options,
+  });
+
+/**
+ * Get SOC History
+ */
+export const getSocHistoryV1ReadingsSocHistoryGet = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetSocHistoryV1ReadingsSocHistoryGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    GetSocHistoryV1ReadingsSocHistoryGetResponses,
+    GetSocHistoryV1ReadingsSocHistoryGetErrors,
+    ThrowOnError
+  >({
+    responseTransformer:
+      getSocHistoryV1ReadingsSocHistoryGetResponseTransformer,
+    url: "/v1/readings/soc-history",
     ...options,
   });
 

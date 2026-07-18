@@ -16,6 +16,7 @@ import {
   deleteTaskV1TasksTaskIdDelete,
   getLatestReadingV1ReadingsLatestGet,
   getReadingV1ReadingsReadingIdGet,
+  getSocHistoryV1ReadingsSocHistoryGet,
   getTaskV1TasksTaskIdGet,
   healthzHealthzGet,
   listAreasV1TasksAreasGet,
@@ -43,6 +44,9 @@ import type {
   GetReadingV1ReadingsReadingIdGetData,
   GetReadingV1ReadingsReadingIdGetError,
   GetReadingV1ReadingsReadingIdGetResponse,
+  GetSocHistoryV1ReadingsSocHistoryGetData,
+  GetSocHistoryV1ReadingsSocHistoryGetError,
+  GetSocHistoryV1ReadingsSocHistoryGetResponse,
   GetTaskV1TasksTaskIdGetData,
   GetTaskV1TasksTaskIdGetError,
   GetTaskV1TasksTaskIdGetResponse,
@@ -595,6 +599,34 @@ export const getLatestReadingV1ReadingsLatestGetOptions = (
       return data;
     },
     queryKey: getLatestReadingV1ReadingsLatestGetQueryKey(options),
+  });
+
+export const getSocHistoryV1ReadingsSocHistoryGetQueryKey = (
+  options?: Options<GetSocHistoryV1ReadingsSocHistoryGetData>,
+) => createQueryKey("getSocHistoryV1ReadingsSocHistoryGet", options);
+
+/**
+ * Get SOC History
+ */
+export const getSocHistoryV1ReadingsSocHistoryGetOptions = (
+  options?: Options<GetSocHistoryV1ReadingsSocHistoryGetData>,
+) =>
+  queryOptions<
+    GetSocHistoryV1ReadingsSocHistoryGetResponse,
+    GetSocHistoryV1ReadingsSocHistoryGetError,
+    GetSocHistoryV1ReadingsSocHistoryGetResponse,
+    ReturnType<typeof getSocHistoryV1ReadingsSocHistoryGetQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getSocHistoryV1ReadingsSocHistoryGet({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getSocHistoryV1ReadingsSocHistoryGetQueryKey(options),
   });
 
 export const getReadingV1ReadingsReadingIdGetQueryKey = (

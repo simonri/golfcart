@@ -1,11 +1,14 @@
+import asyncio
+import contextlib
 import json
 import tempfile
 from collections.abc import AsyncIterator
 from copy import deepcopy
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 import pytest_asyncio
@@ -14,12 +17,15 @@ from api.models.base import Model
 from api.readings.bms import BmsUnreachableError, CaptureResult
 from api.readings.connection import BmsConnection
 from api.readings.decode import decode_blocks
+from api.readings.history import BUCKET_COUNT, HistoryPeriod, build_soc_history
 from api.readings.repository import ReadingRepository
+from api.settings import settings
 from api.tests.fixtures.database import SaveFixture
 from api.tests.fixtures.random_objects import create_reading
 from bleak.exc import BleakError
 from httpx import AsyncClient
 from pytest_mock import MockerFixture
+from sqlalchemy.ext.asyncio import AsyncSession
 
 SAMPLE_BLOCKS_PATH = Path(__file__).parent / "fixtures" / "data" / "daly_sample_blocks.json"
 
@@ -287,6 +293,56 @@ class TestBmsConnection:
       latest = await ReadingRepository.from_session(session).get_latest()
     assert latest is None
 
+  def test_in_quiet_hours_is_a_start_inclusive_end_exclusive_range(self, mocker: MockerFixture, connection: BmsConnection) -> None:
+    fake_datetime = mocker.patch("api.readings.connection.datetime")
+    tz = ZoneInfo(settings.BMS_QUIET_HOURS_TZ)
+
+    fake_datetime.now.return_value = datetime(2026, 1, 1, 1, 59, tzinfo=tz)
+    assert connection._in_quiet_hours() is False
+    fake_datetime.now.return_value = datetime(2026, 1, 1, 2, 0, tzinfo=tz)
+    assert connection._in_quiet_hours() is True
+    fake_datetime.now.return_value = datetime(2026, 1, 1, 6, 0, tzinfo=tz)
+    assert connection._in_quiet_hours() is True
+    fake_datetime.now.return_value = datetime(2026, 1, 1, 8, 59, tzinfo=tz)
+    assert connection._in_quiet_hours() is True
+    fake_datetime.now.return_value = datetime(2026, 1, 1, 9, 0, tzinfo=tz)
+    assert connection._in_quiet_hours() is False
+
+  @pytest.mark.asyncio
+  async def test_reconnect_loop_stands_down_during_quiet_hours(self, mocker: MockerFixture, connection: BmsConnection) -> None:
+    mocker.patch.object(connection, "_in_quiet_hours", return_value=True)
+    mocker.patch.object(settings, "BMS_QUIET_HOURS_CHECK_S", 0.01)
+    mock_connect = mocker.patch.object(connection, "_connect", new=mocker.AsyncMock())
+
+    task = asyncio.create_task(connection._reconnect_loop())
+    await asyncio.sleep(0.05)
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+      await task
+
+    mock_connect.assert_not_awaited()
+
+  @pytest.mark.asyncio
+  async def test_quiet_hours_loop_disconnects_an_open_connection(self, mocker: MockerFixture, connection: BmsConnection, sample_blocks: dict[str, Any]) -> None:
+    mocker.patch("api.readings.connection.bms.scan", return_value=("AA:BB:CC:DD:EE:FF", "DL-TEST"))
+    fake_client = _mock_bleak_client(mocker)
+    mocker.patch("api.readings.connection.BleakClient", return_value=fake_client)
+    mocker.patch("api.readings.connection.DalyModbusBLE", return_value=_mock_daly(mocker, sample_blocks))
+    await connection._connect()
+    assert connection.is_connected is True
+
+    mocker.patch.object(connection, "_in_quiet_hours", return_value=True)
+    mocker.patch.object(settings, "BMS_QUIET_HOURS_CHECK_S", 0.01)
+
+    task = asyncio.create_task(connection._quiet_hours_loop())
+    await asyncio.sleep(0.05)
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+      await task
+
+    assert connection.is_connected is False
+    assert fake_client.disconnect.await_count == 1
+
 
 class TestCaptureReading:
   @pytest.mark.asyncio
@@ -403,3 +459,105 @@ class TestGetReading:
   async def test_missing_returns_404(self, client: AsyncClient) -> None:
     resp = await client.get(f"/v1/readings/{uuid4()}")
     assert resp.status_code == 404
+
+
+class TestBuildSocHistory:
+  def test_fills_gaps_by_carrying_forward_and_flags_them(self) -> None:
+    now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)  # bucket-aligned
+    latest_epoch = int(now.timestamp())
+    raw_buckets = [
+      (latest_epoch - 3600 * 29, 40.0),
+      (latest_epoch - 3600 * 27, 44.0),
+    ]
+
+    result = build_soc_history(raw_buckets, seed_soc=None, period=HistoryPeriod.one_hour, now=now)
+
+    assert len(result) == BUCKET_COUNT
+    assert (result[0].soc_percent, result[0].has_data) == (40.0, True)
+    assert (result[1].soc_percent, result[1].has_data) == (40.0, False)  # carried forward
+    assert (result[2].soc_percent, result[2].has_data) == (44.0, True)
+    assert (result[-1].soc_percent, result[-1].has_data) == (44.0, False)  # still carried
+
+  def test_no_seed_and_no_data_is_all_none(self) -> None:
+    result = build_soc_history([], seed_soc=None, period=HistoryPeriod.one_hour, now=datetime(2026, 1, 1, 10, tzinfo=UTC))
+
+    assert all(b.soc_percent is None and b.has_data is False for b in result)
+
+  def test_seed_carries_forward_from_before_the_window(self) -> None:
+    result = build_soc_history([], seed_soc=77.0, period=HistoryPeriod.one_hour, now=datetime(2026, 1, 1, 10, tzinfo=UTC))
+
+    assert all(b.soc_percent == 77.0 and b.has_data is False for b in result)
+
+  def test_bucket_starts_are_spaced_by_period(self) -> None:
+    now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+
+    result = build_soc_history([], seed_soc=None, period=HistoryPeriod.five_min, now=now)
+
+    assert result[-1].bucket_start == now
+    assert result[0].bucket_start == now - timedelta(minutes=5 * (BUCKET_COUNT - 1))
+    assert result[1].bucket_start - result[0].bucket_start == timedelta(minutes=5)
+
+
+class TestReadingRepositorySocHistory:
+  @pytest.mark.asyncio
+  async def test_get_soc_buckets_averages_within_bucket(self, session: AsyncSession, save_fixture: SaveFixture) -> None:
+    base = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+    await save_fixture(create_reading(created_at=base, soc_percent=40.0))
+    await save_fixture(create_reading(created_at=base + timedelta(minutes=30), soc_percent=44.0))
+    await save_fixture(create_reading(created_at=base + timedelta(hours=1), soc_percent=60.0))
+
+    buckets = await ReadingRepository.from_session(session).get_soc_buckets(3600, base)
+
+    assert buckets == [(int(base.timestamp()), 42.0), (int((base + timedelta(hours=1)).timestamp()), 60.0)]
+
+  @pytest.mark.asyncio
+  async def test_get_soc_before_ignores_readings_at_or_after(self, session: AsyncSession, save_fixture: SaveFixture) -> None:
+    base = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+    await save_fixture(create_reading(created_at=base - timedelta(hours=2), soc_percent=70.0))
+    await save_fixture(create_reading(created_at=base - timedelta(hours=1), soc_percent=75.0))
+    await save_fixture(create_reading(created_at=base, soc_percent=80.0))
+
+    result = await ReadingRepository.from_session(session).get_soc_before(base)
+
+    assert result == 75.0
+
+  @pytest.mark.asyncio
+  async def test_get_soc_before_returns_none_without_earlier_readings(self, session: AsyncSession, save_fixture: SaveFixture) -> None:
+    await save_fixture(create_reading(created_at=datetime(2026, 1, 1, 10, tzinfo=UTC), soc_percent=80.0))
+
+    result = await ReadingRepository.from_session(session).get_soc_before(datetime(2026, 1, 1, 9, tzinfo=UTC))
+
+    assert result is None
+
+
+class TestSocHistoryEndpoint:
+  @pytest.mark.asyncio
+  async def test_returns_thirty_buckets_defaulting_to_one_hour(self, client: AsyncClient, mocker: MockerFixture, save_fixture: SaveFixture) -> None:
+    now = datetime(2026, 1, 1, 10, 30, tzinfo=UTC)
+    mocker.patch("api.readings.endpoints.utc_now", return_value=now)
+    await save_fixture(create_reading(created_at=now - timedelta(minutes=20), soc_percent=40.0))
+    await save_fixture(create_reading(created_at=now - timedelta(minutes=5), soc_percent=44.0))
+
+    body = (await client.get("/v1/readings/soc-history")).json()
+
+    assert len(body["buckets"]) == BUCKET_COUNT
+    assert body["buckets"][-1]["has_data"] is True
+    assert body["buckets"][-1]["soc_percent"] == pytest.approx(42.0)
+
+  @pytest.mark.asyncio
+  async def test_five_minute_period_carries_forward_a_seed_value(self, client: AsyncClient, mocker: MockerFixture, save_fixture: SaveFixture) -> None:
+    now = datetime(2026, 1, 1, 10, 2, tzinfo=UTC)
+    mocker.patch("api.readings.endpoints.utc_now", return_value=now)
+    await save_fixture(create_reading(created_at=now - timedelta(hours=5), soc_percent=77.0))
+    await save_fixture(create_reading(created_at=now - timedelta(minutes=1), soc_percent=55.0))
+
+    body = (await client.get("/v1/readings/soc-history", params={"period": "5m"})).json()
+
+    latest_bucket = now - timedelta(seconds=int(now.timestamp()) % 300)
+    expected_start = latest_bucket - timedelta(minutes=5 * (BUCKET_COUNT - 1))
+    assert len(body["buckets"]) == BUCKET_COUNT
+    assert body["buckets"][0]["bucket_start"] == expected_start.isoformat().replace("+00:00", "Z")
+    assert body["buckets"][0]["soc_percent"] == pytest.approx(77.0)
+    assert body["buckets"][0]["has_data"] is False
+    assert body["buckets"][-1]["has_data"] is True
+    assert body["buckets"][-1]["soc_percent"] == pytest.approx(55.0)
