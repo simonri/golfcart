@@ -1,8 +1,8 @@
-import type { HistoryPeriod } from "@bessel/client";
+import type { HistoryPeriod } from "@golfcart/client";
 import {
   createReadingV1ReadingsPostMutation,
   getSocHistoryV1ReadingsSocHistoryGetOptions,
-} from "@bessel/client";
+} from "@golfcart/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";

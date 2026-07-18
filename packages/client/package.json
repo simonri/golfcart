@@ -1,5 +1,5 @@
 {
-  "name": "@bessel/client",
+  "name": "@golfcart/client",
   "private": true,
   "exports": {
     "./client": "./src/client/index.ts",

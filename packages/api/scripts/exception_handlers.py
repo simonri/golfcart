@@ -1,11 +1,11 @@
-from api.exceptions import BesselError
+from api.exceptions import GolfcartError
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 
-async def bessel_error_handler(request: Request, exc: Exception) -> JSONResponse:
-  if not isinstance(exc, BesselError):
-    raise TypeError(f"Expected BesselError, got {type(exc).__name__}")
+async def golfcart_error_handler(request: Request, exc: Exception) -> JSONResponse:
+  if not isinstance(exc, GolfcartError):
+    raise TypeError(f"Expected GolfcartError, got {type(exc).__name__}")
 
   return JSONResponse(
     status_code=exc.status_code,
@@ -15,4 +15,4 @@ async def bessel_error_handler(request: Request, exc: Exception) -> JSONResponse
 
 
 def add_exception_handlers(app: FastAPI) -> None:
-  app.add_exception_handler(BesselError, bessel_error_handler)
+  app.add_exception_handler(GolfcartError, golfcart_error_handler)

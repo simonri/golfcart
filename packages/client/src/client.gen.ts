@@ -21,5 +21,5 @@ export type CreateClientConfig<T extends ClientOptions = ClientOptions2> = (
 ) => Config<Required<ClientOptions> & T>;
 
 export const client = createClient(
-  createConfig<ClientOptions2>({ baseUrl: "https://api.getbessel.com" }),
+  createConfig<ClientOptions2>({ baseUrl: "https://golf.tailca3fd9.ts.net" }),
 );

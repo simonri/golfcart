@@ -6,7 +6,7 @@ from pydantic_core import ErrorDetails, InitErrorDetails, PydanticCustomError
 from pydantic_core import ValidationError as PydanticValidationError
 
 
-class BesselError(Exception):
+class GolfcartError(Exception):
   """Base exception for all application errors."""
 
   _schema: ClassVar[type[BaseModel] | None] = None
@@ -38,56 +38,56 @@ class BesselError(Exception):
     return cls._schema
 
 
-class ResourceNotFound(BesselError):
+class ResourceNotFound(GolfcartError):
   """Resource was not found."""
 
   def __init__(self, message: str = "Not found", status_code: int = 404) -> None:
     super().__init__(message, status_code)
 
 
-class ValidationError(BesselError):
+class ValidationError(GolfcartError):
   """Request validation failed."""
 
   def __init__(self, message: str = "Validation failed", status_code: int = 400) -> None:
     super().__init__(message, status_code)
 
 
-class ConflictError(BesselError):
+class ConflictError(GolfcartError):
   """Resource already exists or state conflict."""
 
   def __init__(self, message: str = "Conflict", status_code: int = 409) -> None:
     super().__init__(message, status_code)
 
 
-class UnauthorizedError(BesselError):
+class UnauthorizedError(GolfcartError):
   """Authentication required or token invalid."""
 
   def __init__(self, message: str = "Unauthorized", status_code: int = 401) -> None:
     super().__init__(message, status_code, headers={"WWW-Authenticate": "Bearer"})
 
 
-class ForbiddenError(BesselError):
+class ForbiddenError(GolfcartError):
   """Access to this resource is forbidden."""
 
   def __init__(self, message: str = "Forbidden", status_code: int = 403) -> None:
     super().__init__(message, status_code)
 
 
-class ServiceUnavailableError(BesselError):
+class ServiceUnavailableError(GolfcartError):
   """External service is unavailable."""
 
   def __init__(self, message: str = "Service unavailable", status_code: int = 503) -> None:
     super().__init__(message, status_code)
 
 
-class InternalError(BesselError):
+class InternalError(GolfcartError):
   """Internal server error."""
 
   def __init__(self, message: str = "Internal server error", status_code: int = 500) -> None:
     super().__init__(message, status_code)
 
 
-class BesselRequestValidationError(BesselError):
+class GolfcartRequestValidationError(GolfcartError):
   def __init__(self, errors: Sequence[ErrorDetails]) -> None:
     super().__init__("Request validation failed", status_code=422)
     self._errors = errors

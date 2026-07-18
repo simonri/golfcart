@@ -11,13 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def get_database_url(worker_id: str) -> str:
-  db_path = Path(tempfile.gettempdir()) / f"bessel_test_{worker_id}.db"
+  db_path = Path(tempfile.gettempdir()) / f"golfcart_test_{worker_id}.db"
   return f"sqlite+aiosqlite:///{db_path}"
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session", autouse=True)
 async def initialize_test_database(worker_id: str) -> AsyncIterator[None]:
-  db_path = Path(tempfile.gettempdir()) / f"bessel_test_{worker_id}.db"
+  db_path = Path(tempfile.gettempdir()) / f"golfcart_test_{worker_id}.db"
   db_path.unlink(missing_ok=True)
 
   engine = create_async_engine(dsn=get_database_url(worker_id))

@@ -11,10 +11,10 @@ class Environment(StrEnum):
   production = "production"
 
 
-# Support both the prefixed (bessel_ENV, matching env_prefix) and bare (ENV) forms,
+# Support both the prefixed (golfcart_ENV, matching env_prefix) and bare (ENV) forms,
 # and feed the result into Settings.ENV as its default so the env-file selection and
 # the runtime environment can never disagree.
-env = Environment(os.getenv("bessel_ENV") or os.getenv("ENV") or Environment.development)
+env = Environment(os.getenv("golfcart_ENV") or os.getenv("ENV") or Environment.development)
 env_file = ".env.testing" if env == Environment.testing else ".env"
 
 file_extension = ".exe" if os.name == "nt" else ""
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
   FRONTEND_BASE_URL: str = Field(default="http://localhost:5173")
 
   # Database
-  DATABASE_PATH: str = Field(default="./bessel.db")
+  DATABASE_PATH: str = Field(default="./golfcart.db")
 
   # BMS (Daly, Bluetooth LE)
   BMS_ADDRESS: str | None = Field(default=None, description="BLE address of the BMS; skips scanning when set.")
@@ -59,7 +59,7 @@ class Settings(BaseSettings):
   # Sentry
   SENTRY_DSN: str | None = None
 
-  model_config = SettingsConfigDict(env_prefix="bessel_", env_file_encoding="utf-8", case_sensitive=False, env_file=env_file, extra="allow")
+  model_config = SettingsConfigDict(env_prefix="golfcart_", env_file_encoding="utf-8", case_sensitive=False, env_file=env_file, extra="allow")
 
   def get_sqlite_dsn(self, driver: str) -> str:
     return f"sqlite+{driver}:///{self.DATABASE_PATH}"

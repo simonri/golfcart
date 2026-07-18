@@ -1,4 +1,4 @@
-import type { SocHistoryBucketSchema } from "@bessel/client";
+import type { SocHistoryBucketSchema } from "@golfcart/client";
 import { useState } from "react";
 
 const CHART_HEIGHT = 112;

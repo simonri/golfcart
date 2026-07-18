@@ -41,7 +41,7 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @bessel/web build
+      - run: pnpm --filter @golfcart/web build
         env:
           VITE_API_BASE_URL: https://golf.tailca3fd9.ts.net
 

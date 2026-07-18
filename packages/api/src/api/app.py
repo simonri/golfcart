@@ -62,7 +62,7 @@ class State(TypedDict):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[State]:
-  log.info("Starting Bessel API")
+  log.info("Starting Golfcart API")
 
   async_engine = create_async_engine()
   async_sessionmaker = create_async_sessionmaker(async_engine)
@@ -72,7 +72,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[State]:
   if not settings.is_testing():
     await connection.start(async_sessionmaker)
 
-  log.info("Bessel API started")
+  log.info("Golfcart API started")
 
   yield {
     "async_engine": async_engine,
@@ -86,7 +86,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[State]:
   await async_engine.dispose()
   sync_engine.dispose()
 
-  log.info("Bessel API stopped")
+  log.info("Golfcart API stopped")
 
 
 def create_app() -> FastAPI:

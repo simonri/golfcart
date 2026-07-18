@@ -58,7 +58,7 @@ async def isolated_sessionmaker() -> AsyncIterator[AsyncSessionMaker]:
   DB/transaction, for exercising code paths that commit their own session
   (background poll persistence) without disturbing other tests' rollback-based
   isolation."""
-  db_path = Path(tempfile.gettempdir()) / f"bessel_test_poll_{uuid4().hex}.db"
+  db_path = Path(tempfile.gettempdir()) / f"golfcart_test_poll_{uuid4().hex}.db"
   engine = create_async_engine(dsn=f"sqlite+aiosqlite:///{db_path}")
   async with engine.begin() as conn:
     await conn.run_sync(Model.metadata.create_all)

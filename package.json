@@ -9,7 +9,7 @@
     "test": "turbo test --parallel",
     "test:watch": "turbo test:watch --parallel",
     "typecheck": "turbo typecheck",
-    "dev": "turbo dev --parallel --filter=@bessel/web --filter=@bessel/api --filter=@bessel/worker",
+    "dev": "turbo dev --parallel --filter=@golfcart/web --filter=@golfcart/api --filter=@golfcart/worker",
     "dev:web": "turbo dev --filter=@golfcart/web --parallel",
     "dev:api": "turbo dev --filter=@golfcart/api --parallel",
     "build": "turbo build --parallel",
